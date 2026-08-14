@@ -11,6 +11,7 @@ type GetProductDTO struct {
 	Name        string          `json:"product_name"`
 	Description string          `json:"product_description"`
 	Price       decimal.Decimal `json:"product_price"`
+	Image       string          `json:"product_image"`
 	Category    GetCategoryDTO  `json:"category"`
 }
 
@@ -28,6 +29,7 @@ func ToGetProductDTO(product domain.Product) GetProductDTO {
 		Name:        product.Name,
 		Description: product.Description,
 		Price:       product.Price,
+		Image:       product.Image,
 		Category:    ToGetCategoryDTO(product.Category),
 	}
 }

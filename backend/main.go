@@ -82,6 +82,10 @@ func main() {
 			r.Post("/", productHandler.HandleProductCreate)
 			r.Get("/", productHandler.HandleGetProductsByCategory)
 		})
+
+		r.Get("/uploads/{file}", func(w http.ResponseWriter, r *http.Request) {
+			http.StripPrefix("/api/v1/uploads/", http.FileServer(http.Dir("./uploads"))).ServeHTTP(w, r)
+		})
 	})
 
 	httpService := service.NewHTTPService(r)

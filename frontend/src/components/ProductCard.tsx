@@ -1,14 +1,17 @@
 import { motion } from 'framer-motion';
-import { ShoppingCart } from 'lucide-react';
+import { ImageOff, ShoppingCart } from 'lucide-react';
+import { useState } from 'react';
 import type { Product } from '../types';
-import { getProductEmoji, formatPrice } from '../utils/emoji';
+import { formatPrice } from '../utils/emoji';
+import { resolveImageUrl } from '../utils/image';
 
 interface Props {
   product: Product;
 }
 
 export function ProductCard({ product }: Props) {
-  const emoji = getProductEmoji(product.product_name, product.category.category_slug);
+  const src = resolveImageUrl(product.product_image);
+  const [failed, setFailed] = useState(false);
 
   return (
     <motion.article
@@ -16,11 +19,22 @@ export function ProductCard({ product }: Props) {
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       className="group flex flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden transition-colors hover:border-[var(--color-accent)]/40 hover:bg-[var(--color-surface-hover)]"
     >
-      {/* Emoji "image" */}
-      <div className="relative flex h-40 sm:h-44 items-center justify-center bg-gradient-to-b from-[#222] to-[#1a1a1a]">
-        <span className="text-6xl sm:text-7xl select-none drop-shadow-lg transition-transform duration-300 group-hover:scale-110">
-          {emoji}
-        </span>
+      {/* Image */}
+      <div className="relative aspect-square w-full bg-[#1a1a1a] overflow-hidden">
+        {src && !failed ? (
+          <img
+            src={src}
+            alt={product.product_name}
+            loading="lazy"
+            onError={() => setFailed(true)}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--color-text-muted)]">
+            <ImageOff size={32} strokeWidth={1.5} />
+            <span className="text-xs">Нет фото</span>
+          </div>
+        )}
       </div>
 
       {/* Content */}

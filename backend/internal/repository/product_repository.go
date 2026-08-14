@@ -28,19 +28,32 @@ type CreateProductParams struct {
 }
 
 func (r ProductRepository) GetProductsByCategory(ctx context.Context, categorySlug string, page int) ([]domain.Product, *domain.DomainError) {
-	if page <= 0 {
+	if page <= 0 { //TODO: зарефакторить данный метод, ибо это не очень красиво
 		return nil, domain.NewDomainError(constants.FindError, "page cannot be negative")
 	}
 
-	query := `
-		SELECT 
-			p.product_id, p.product_name, p.product_description, p.product_price,
-			c.category_id AS "category.category_id", c.category_name AS "category.category_name", c.category_slug AS "category.category_slug"
-		FROM products AS p
-		JOIN categories AS c ON p.product_category_id = c.category_id
-		WHERE c.category_slug = $1
-		LIMIT 16 OFFSET $2
-	`
+	var query string
+	if categorySlug == "" {
+		query = `
+			SELECT 
+				p.product_id, p.product_name, p.product_description, p.product_price, p.product_image,
+				c.category_id AS "category.category_id", c.category_name AS "category.category_name", c.category_slug AS "category.category_slug"
+			FROM products AS p
+			JOIN categories AS c ON p.product_category_id = c.category_id
+			LIMIT 16 OFFSET $1
+		`
+	} else {
+		query = `
+			SELECT 
+				p.product_id, p.product_name, p.product_description, p.product_price, p.product_image,
+				c.category_id AS "category.category_id", c.category_name AS "category.category_name", c.category_slug AS "category.category_slug"
+			FROM products AS p
+			JOIN categories AS c ON p.product_category_id = c.category_id
+			WHERE c.category_slug = $1
+			LIMIT 16 OFFSET $2
+		`
+	}
+
 	var offset int
 	if page == 1 {
 		offset = 0
@@ -49,7 +62,13 @@ func (r ProductRepository) GetProductsByCategory(ctx context.Context, categorySl
 	}
 
 	var products []domain.Product
-	err := r.db.SelectContext(ctx, &products, query, categorySlug, offset)
+	var err error
+	if categorySlug == "" {
+		err = r.db.SelectContext(ctx, &products, query, offset)
+	} else {
+		err = r.db.SelectContext(ctx, &products, query, categorySlug, offset)
+	}
+
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, domain.NewDomainError(constants.RequestTimeout, "request timeout")
