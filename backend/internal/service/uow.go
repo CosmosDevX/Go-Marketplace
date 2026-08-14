@@ -2,23 +2,17 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"myapp/internal/constants"
 	"myapp/internal/domain"
+	"myapp/internal/repository"
 
 	"github.com/jmoiron/sqlx"
 )
 
-type DBTX interface {
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-	GetContext(ctx context.Context, dest any, query string, args ...any) error
-	SelectContext(ctx context.Context, dest any, query string, args ...any) error
-}
-
 type Repositories struct {
+	CategoryRepository repository.CategoryRepository
+	ProductRepository  repository.ProductRepository
 }
 
 type UnitOfWork interface {
@@ -41,7 +35,10 @@ func (u unitOfWork) Do(ctx context.Context, fn func(ctx context.Context, repos R
 		return nil, &domain.DomainError{Code: constants.TransactionError, Message: "transaction start failed"}
 	}
 
-	repos := Repositories{}
+	repos := Repositories{
+		CategoryRepository: repository.NewCategoryRepository(tx),
+		ProductRepository:  repository.NewProductRepository(tx),
+	}
 
 	value, domainErr := fn(ctx, repos)
 	if domainErr != nil {

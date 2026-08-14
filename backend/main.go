@@ -27,27 +27,32 @@ func main() {
 	cfg.Load()
 
 	logger.Setup(cfg.LogFormat, cfg.LogLevel)
-
 	slog.Info("starting application")
 
 	//initialize clients
 	sqlxClient := infrastructure.NewSQLxClient(cfg.DBConnectionString)
 	redisClient := infrastructure.NewRedisClient(cfg.RedisClientHost)
-
+	unitOfWork := service.NewUnitOfWork(sqlxClient.GetDB())
 	rateLimiter := redis_rate.NewLimiter(redisClient.GetClient())
 
 	//initialize repositories
 	userRepository := repository.NewUserRepository(sqlxClient.GetDB())
+	categoryRepository := repository.NewCategoryRepository(sqlxClient.GetDB())
+	productRepository := repository.NewProductRepository(sqlxClient.GetDB())
 	refreshTokenRepository := repository.NewRefreshTokenRepository(redisClient.GetClient())
 
 	//initialize services
 	jwtService := authorization.NewJWTService(cfg.SecretKey)
 	authService := authorization.NewAuthService(userRepository, refreshTokenRepository, jwtService)
 	userService := service.NewUserService(userRepository)
+	categoryService := service.NewCategoryService(categoryRepository)
+	productService := service.NewProductService(unitOfWork, productRepository)
 
 	//initialize handlers
 	authHandler := handler.NewAuthHandler(authService, *rateLimiter)
 	userHandler := handler.NewUserHandler(userService, *rateLimiter)
+	categoryHandler := handler.NewCategoryHandler(categoryService)
+	productHandler := handler.NewProductHandler(productService)
 
 	//initialize middlewares
 	authMiddleware := middleware.NewAuthMiddleware(jwtService)
@@ -60,13 +65,22 @@ func main() {
 	r.Use(chiMiddleware.Timeout(15 * time.Second))
 
 	r.Route("/api/v1", func(r chi.Router) {
-
 		r.Post("/auth", authHandler.HandleAuth)
 		r.Post("/refresh", authHandler.HandleRefresh)
 		r.With(authMiddleware.ProtectionMiddleware).Post("/logout", authHandler.HandleLogout)
 
 		r.Route("/users", func(r chi.Router) {
-			r.Post("/create", userHandler.HandleUserCreate)
+			r.Post("/", userHandler.HandleUserCreate)
+		})
+
+		r.Route("/categories", func(r chi.Router) {
+			r.Post("/", categoryHandler.HandleCategoryCreate)
+			r.Get("/", categoryHandler.HandleGetAllCategories)
+		})
+
+		r.Route("/products", func(r chi.Router) {
+			r.Post("/", productHandler.HandleProductCreate)
+			r.Get("/", productHandler.HandleGetProductsByCategory)
 		})
 	})
 
