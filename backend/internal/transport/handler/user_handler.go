@@ -2,7 +2,7 @@ package handler
 
 import (
 	"context"
-	"myapp/internal/constants"
+	"fmt"
 	"myapp/internal/domain"
 	"myapp/internal/transport/dto"
 	"myapp/internal/transport/validator"
@@ -13,8 +13,10 @@ import (
 )
 
 type UserCreater interface {
-	CreateUser(ctx context.Context, userDTO dto.CreateUserDTO) (int, *domain.DomainError)
+	Create(ctx context.Context, userDTO dto.CreateUserDTO) (int, error)
 }
+
+const createUserRateLimitKey = "create_user"
 
 type UserHandler struct {
 	userCreater UserCreater
@@ -28,27 +30,27 @@ func NewUserHandler(userCreater UserCreater, rateLimiter redis_rate.Limiter) Use
 	}
 }
 
-func (h UserHandler) HandleUserCreate(w http.ResponseWriter, r *http.Request) {
+func (h UserHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var createUserDTO dto.CreateUserDTO
 	if err := utils.Deserialize(r.Body, &createUserDTO); err != nil {
-		utils.WriteError(w, *domain.NewDeserializingError("error during deserializing create user dto"))
+		utils.WriteError(w, fmt.Errorf("create user dto deserialize: %w", domain.ErrParse))
 		return
 	}
 
 	if err := validator.Struct(createUserDTO); err != nil {
-		utils.WriteError(w, *domain.NewValidationError(err.Error()))
+		utils.WriteError(w, fmt.Errorf("create user dto validate: %w", domain.ErrValidation))
 		return
 	}
 
-	if err := utils.ActivateRateLimiter(ctx, w, r, constants.CreateUserRateLimitKey, &h.rateLimiter, redis_rate.PerHour(5)); err != nil {
+	if err := utils.ActivateRateLimiter(ctx, w, r, createUserRateLimitKey, &h.rateLimiter, redis_rate.PerHour(5)); err != nil {
 		return
 	}
 
-	id, domainErr := h.userCreater.CreateUser(ctx, createUserDTO)
-	if domainErr != nil {
-		utils.WriteError(w, *domainErr)
+	id, err := h.userCreater.Create(ctx, createUserDTO)
+	if err != nil {
+		utils.WriteError(w, err)
 		return
 	}
 

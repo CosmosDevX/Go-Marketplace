@@ -70,17 +70,17 @@ func main() {
 		r.With(authMiddleware.ProtectionMiddleware).Post("/logout", authHandler.HandleLogout)
 
 		r.Route("/users", func(r chi.Router) {
-			r.Post("/", userHandler.HandleUserCreate)
+			r.Post("/", userHandler.CreateHandler)
 		})
 
 		r.Route("/categories", func(r chi.Router) {
-			r.Post("/", categoryHandler.HandleCategoryCreate)
-			r.Get("/", categoryHandler.HandleGetAllCategories)
+			r.Post("/", categoryHandler.CreateHandler)
+			r.Get("/", categoryHandler.ListAllHandler)
 		})
 
 		r.Route("/products", func(r chi.Router) {
-			r.Post("/", productHandler.HandleProductCreate)
-			r.Get("/", productHandler.HandleGetProductsByCategory)
+			r.Post("/", productHandler.CreateHandler)
+			r.Get("/", productHandler.ListAllHandler)
 		})
 
 		r.Get("/uploads/{file}", func(w http.ResponseWriter, r *http.Request) {

@@ -5,8 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"myapp/internal/constants"
+	"fmt"
 	"myapp/internal/domain"
+
+	"github.com/lib/pq"
 )
 
 type CategoryRepository struct {
@@ -24,49 +26,53 @@ type CreateCategoryParams struct {
 	Slug string
 }
 
-func (r CategoryRepository) GetAllCategories(ctx context.Context) ([]domain.Category, *domain.DomainError) {
+func (r CategoryRepository) ListAll(ctx context.Context) ([]domain.Category, error) {
 	query := `SELECT category_id, category_name, category_slug FROM categories`
 	var categories []domain.Category
 	err := r.db.SelectContext(ctx, &categories, query)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, domain.NewDomainError(constants.RequestTimeout, "request timeout")
+			return nil, fmt.Errorf("get all categories: %w", domain.ErrTimeout)
 		}
 
-		return nil, domain.NewDomainError(constants.FindError, "error during get all categories")
+		return nil, fmt.Errorf("get all categories: %w", err)
 	}
 
 	return categories, nil
 }
 
-func (r CategoryRepository) CreateCategory(ctx context.Context, params CreateCategoryParams) (int, *domain.DomainError) {
+func (r CategoryRepository) Create(ctx context.Context, params CreateCategoryParams) (int, error) {
 	query := `INSERT INTO categories(category_name, category_slug) VALUES($1, $2) RETURNING category_id`
 	var categoryID int
 	err := r.db.QueryRowContext(ctx, query, params.Name, params.Slug).Scan(&categoryID)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return 0, domain.NewDomainError(constants.RequestTimeout, "request timeout")
+			return 0, fmt.Errorf("create category: %w", domain.ErrTimeout)
+		}
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return 0, fmt.Errorf("create category: %w", domain.ErrUniqueViolation)
 		}
 
-		return 0, domain.NewDomainError(constants.CreateError, "error during create category")
+		return 0, fmt.Errorf("create category: %w", err)
 	}
 
 	return categoryID, nil
 }
 
-func (r CategoryRepository) GetCategoryIDBySlug(ctx context.Context, categorySlug string) (int, *domain.DomainError) {
+func (r CategoryRepository) GetIDBySlug(ctx context.Context, categorySlug string) (int, error) {
 	query := `SELECT category_id FROM categories WHERE category_slug = $1`
 	var categoryID int
 	err := r.db.QueryRowContext(ctx, query, categorySlug).Scan(&categoryID)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return 0, domain.NewDomainError(constants.RequestTimeout, "request timeout")
+			return 0, fmt.Errorf("get category id by slug %s: %w", categorySlug, domain.ErrTimeout)
 		}
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, domain.NewDomainError(constants.NotFound, "category by id not found")
+			return 0, fmt.Errorf("get category id by slug %s: %w", categorySlug, domain.ErrNotFound)
 		}
 
-		return 0, domain.NewDomainError(constants.FindError, "error during get category id by slug")
+		return 0, fmt.Errorf("get category id by slug %s: %w", categorySlug, err)
 	}
 
 	return categoryID, nil

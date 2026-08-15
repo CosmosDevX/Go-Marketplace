@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"myapp/internal/constants"
 	"myapp/internal/domain"
 	"net/http"
 
@@ -16,13 +15,13 @@ func ActivateRateLimiter(ctx context.Context, w http.ResponseWriter, r *http.Req
 
 	res, err := rateLimiter.Allow(ctx, key+ip, limit)
 	if err != nil {
-		WriteError(w, *domain.NewDomainError(constants.TooManyRequests, "too many requests"))
+		WriteError(w, fmt.Errorf("rate limit allow: %w", domain.ErrTooManyRequests))
 		return errors.New("too many requests err")
 	}
 
 	if res.Allowed == 0 {
 		w.Header().Set("Retry-After", fmt.Sprintf("%.0f", res.RetryAfter.Seconds()))
-		WriteError(w, *domain.NewDomainError(constants.TooManyRequests, "too many requests. Try again later"))
+		WriteError(w, fmt.Errorf("not allowed: %w", domain.ErrTooManyRequests))
 		return errors.New("too many requests err")
 	}
 

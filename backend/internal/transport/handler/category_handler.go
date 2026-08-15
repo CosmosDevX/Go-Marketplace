@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"myapp/internal/domain"
 	"myapp/internal/transport/dto"
 	"myapp/internal/transport/validator"
@@ -10,8 +11,8 @@ import (
 )
 
 type CategoryService interface {
-	CreateCategory(ctx context.Context, createCategoryDTO dto.CreateCategoryDTO) (int, *domain.DomainError)
-	GetAllCategories(ctx context.Context) ([]dto.GetCategoryDTO, *domain.DomainError)
+	Create(ctx context.Context, createCategoryDTO dto.CreateCategoryDTO) (int, error)
+	ListAll(ctx context.Context) ([]dto.GetCategoryDTO, error)
 }
 
 type CategoryHandler struct {
@@ -24,35 +25,35 @@ func NewCategoryHandler(categoryService CategoryService) CategoryHandler {
 	}
 }
 
-func (h CategoryHandler) HandleCategoryCreate(w http.ResponseWriter, r *http.Request) {
+func (h CategoryHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var createCategoryDTO dto.CreateCategoryDTO
 	if err := utils.Deserialize(r.Body, &createCategoryDTO); err != nil {
-		utils.WriteError(w, *domain.NewDeserializingError("error during deserializing create category dto"))
+		utils.WriteError(w, fmt.Errorf("create category dto deserialize: %w", domain.ErrParse))
 		return
 	}
 
 	if err := validator.Struct(createCategoryDTO); err != nil {
-		utils.WriteError(w, *domain.NewValidationError(err.Error()))
+		utils.WriteError(w, fmt.Errorf("create category dto validate: %w", domain.ErrValidation))
 		return
 	}
 
-	categoryID, domainErr := h.categoryService.CreateCategory(ctx, createCategoryDTO)
-	if domainErr != nil {
-		utils.WriteError(w, *domainErr)
+	categoryID, err := h.categoryService.Create(ctx, createCategoryDTO)
+	if err != nil {
+		utils.WriteError(w, err)
 		return
 	}
 
 	utils.WriteJSON(w, map[string]int{"category_id": categoryID})
 }
 
-func (h CategoryHandler) HandleGetAllCategories(w http.ResponseWriter, r *http.Request) {
+func (h CategoryHandler) ListAllHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	getCategoryDTOs, domainErr := h.categoryService.GetAllCategories(ctx)
-	if domainErr != nil {
-		utils.WriteError(w, *domainErr)
+	getCategoryDTOs, err := h.categoryService.ListAll(ctx)
+	if err != nil {
+		utils.WriteError(w, err)
 		return
 	}
 

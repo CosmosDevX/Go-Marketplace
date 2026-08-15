@@ -2,7 +2,7 @@ package utils
 
 import (
 	"encoding/json"
-	"myapp/internal/domain"
+	"log/slog"
 	"net"
 	"net/http"
 )
@@ -10,15 +10,20 @@ import (
 func WriteJSON(w http.ResponseWriter, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, "error during writing response", http.StatusBadRequest)
+		http.Error(w, "error during writing response", http.StatusInternalServerError)
 		return
 	}
 }
 
-func WriteError(w http.ResponseWriter, domainErr domain.DomainError) {
+func WriteError(w http.ResponseWriter, err error) {
+	status := MapError(err)
+	msg := PublicMessage(err)
+
+	slog.Error("request failed", "status", status, "error", err)
+
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(MapError(domainErr.Code))
-	json.NewEncoder(w).Encode(domainErr)
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": msg})
 }
 
 func GetIP(r *http.Request) string {

@@ -3,9 +3,10 @@ package authorization
 
 import (
 	"errors"
-	"myapp/internal/constants"
-	"myapp/internal/domain"
+	"fmt"
 	"time"
+
+	"myapp/internal/domain"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -17,8 +18,8 @@ type UserClaims struct {
 }
 
 type JWTServiceInterface interface {
-	GenerateToken(userID int, username string, expiresAt time.Duration) (string, *domain.DomainError)
-	ParseToken(tokenString string) (*UserClaims, *domain.DomainError)
+	GenerateToken(userID int, username string, expiresAt time.Duration) (string, error)
+	ParseToken(tokenString string) (*UserClaims, error)
 }
 
 type JWTService struct {
@@ -31,7 +32,7 @@ func NewJWTService(secretKey string) JWTServiceInterface {
 	}
 }
 
-func (s JWTService) GenerateToken(userID int, username string, expiresAt time.Duration) (string, *domain.DomainError) {
+func (s JWTService) GenerateToken(userID int, username string, expiresAt time.Duration) (string, error) {
 	claims := UserClaims{
 		UserID:   userID,
 		Username: username,
@@ -46,13 +47,13 @@ func (s JWTService) GenerateToken(userID int, username string, expiresAt time.Du
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(s.secretKey)
 	if err != nil {
-		return "", &domain.DomainError{Code: constants.TokenSignError, Message: "error during the signing token"}
+		return "", fmt.Errorf("token sign: %w", err)
 	}
 
 	return tokenString, nil
 }
 
-func (s JWTService) ParseToken(tokenString string) (*UserClaims, *domain.DomainError) {
+func (s JWTService) ParseToken(tokenString string) (*UserClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("incorrect encrypt method")
@@ -62,12 +63,12 @@ func (s JWTService) ParseToken(tokenString string) (*UserClaims, *domain.DomainE
 	})
 
 	if err != nil {
-		return nil, &domain.DomainError{Code: constants.InvalidTokenError, Message: "invalid token"}
+		return nil, fmt.Errorf("token parse: %w", domain.ErrUnauthorized)
 	}
 
 	if userClaims, ok := token.Claims.(*UserClaims); ok && token.Valid {
 		return userClaims, nil
 	}
 
-	return nil, &domain.DomainError{Code: constants.InvalidTokenError, Message: "token is invalid"}
+	return nil, fmt.Errorf("token parse: %w", domain.ErrUnauthorized)
 }

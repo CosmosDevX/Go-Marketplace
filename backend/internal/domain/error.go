@@ -1,20 +1,13 @@
 package domain
 
-import "myapp/internal/constants"
+import "errors"
 
-type DomainError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
-
-func NewDomainError(code, message string) *DomainError {
-	return &DomainError{Code: code, Message: message}
-}
-
-func NewValidationError(validationMessage string) *DomainError {
-	return &DomainError{Code: constants.ValidationError, Message: validationMessage}
-}
-
-func NewDeserializingError(message string) *DomainError {
-	return &DomainError{Code: constants.DeserializingError, Message: message}
-}
+var (
+	ErrNotFound        = errors.New("not found")
+	ErrUniqueViolation = errors.New("unique violation")
+	ErrTimeout         = errors.New("timeout")
+	ErrParse           = errors.New("parse error")
+	ErrValidation      = errors.New("validation error")
+	ErrUnauthorized    = errors.New("unauthorized")
+	ErrTooManyRequests = errors.New("too many requests")
+)

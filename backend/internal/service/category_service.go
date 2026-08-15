@@ -8,8 +8,8 @@ import (
 )
 
 type CategoryRepository interface {
-	GetAllCategories(ctx context.Context) ([]domain.Category, *domain.DomainError)
-	CreateCategory(ctx context.Context, params repository.CreateCategoryParams) (int, *domain.DomainError)
+	ListAll(ctx context.Context) ([]domain.Category, error)
+	Create(ctx context.Context, params repository.CreateCategoryParams) (int, error)
 }
 
 type CategoryService struct {
@@ -22,22 +22,22 @@ func NewCategoryService(categoryRepository CategoryRepository) CategoryService {
 	}
 }
 
-func (s CategoryService) CreateCategory(ctx context.Context, createCategoryDTO dto.CreateCategoryDTO) (int, *domain.DomainError) {
-	categoryID, domainErr := s.categoryRepository.CreateCategory(ctx, repository.CreateCategoryParams{Name: createCategoryDTO.Name, Slug: createCategoryDTO.Slug})
-	if domainErr != nil {
-		return 0, domainErr
+func (s CategoryService) Create(ctx context.Context, createCategoryDTO dto.CreateCategoryDTO) (int, error) {
+	categoryID, err := s.categoryRepository.Create(ctx, repository.CreateCategoryParams{Name: createCategoryDTO.Name, Slug: createCategoryDTO.Slug})
+	if err != nil {
+		return 0, err
 	}
 
 	return categoryID, nil
 }
 
-func (s CategoryService) GetAllCategories(ctx context.Context) ([]dto.GetCategoryDTO, *domain.DomainError) {
-	categories, domainErr := s.categoryRepository.GetAllCategories(ctx)
-	if domainErr != nil {
-		return nil, domainErr
+func (s CategoryService) ListAll(ctx context.Context) ([]dto.GetCategoryDTO, error) {
+	categories, err := s.categoryRepository.ListAll(ctx)
+	if err != nil {
+		return nil, err
 	}
 	if len(categories) == 0 {
-		return nil, nil
+		return []dto.GetCategoryDTO{}, nil
 	}
 
 	dtos := make([]dto.GetCategoryDTO, len(categories))

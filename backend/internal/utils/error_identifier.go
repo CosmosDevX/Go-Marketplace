@@ -1,27 +1,47 @@
 package utils
 
 import (
-	"myapp/internal/constants"
+	"errors"
+	"myapp/internal/domain"
 	"net/http"
 )
 
-func MapError(code string) int {
-	switch code {
-	case constants.NotFound:
+func MapError(err error) int {
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
 		return http.StatusNotFound
-	case constants.RequestTimeout:
-		return http.StatusGatewayTimeout
-	case constants.InvalidPassword:
-		return http.StatusUnauthorized
-	case constants.TokenSignError, constants.InvalidTokenError, constants.AuthError:
-		return http.StatusUnauthorized
-	case constants.ValidationError, constants.DeserializingError, constants.ParseError:
-		return http.StatusBadRequest
-	case constants.TooManyRequests:
-		return http.StatusTooManyRequests
-	case constants.UniqueViolation:
+	case errors.Is(err, domain.ErrUniqueViolation):
 		return http.StatusConflict
+	case errors.Is(err, domain.ErrTimeout):
+		return http.StatusGatewayTimeout
+	case errors.Is(err, domain.ErrValidation), errors.Is(err, domain.ErrParse):
+		return http.StatusBadRequest
+	case errors.Is(err, domain.ErrUnauthorized):
+		return http.StatusUnauthorized
+	case errors.Is(err, domain.ErrTooManyRequests):
+		return http.StatusTooManyRequests
 	default:
 		return http.StatusInternalServerError
+	}
+}
+
+func PublicMessage(err error) string {
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return "not found"
+	case errors.Is(err, domain.ErrUniqueViolation):
+		return "already exists"
+	case errors.Is(err, domain.ErrTimeout):
+		return "request timeout"
+	case errors.Is(err, domain.ErrValidation):
+		return "validation failed"
+	case errors.Is(err, domain.ErrParse):
+		return "invalid request"
+	case errors.Is(err, domain.ErrUnauthorized):
+		return "unauthorized"
+	case errors.Is(err, domain.ErrTooManyRequests):
+		return "too many requests"
+	default:
+		return "internal error"
 	}
 }

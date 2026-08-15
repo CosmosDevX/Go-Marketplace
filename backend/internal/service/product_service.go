@@ -2,14 +2,16 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"myapp/internal/domain"
 	"myapp/internal/repository"
 	"myapp/internal/transport/dto"
 )
 
 type ProductRepository interface {
-	GetProductsByCategory(ctx context.Context, categorySlug string, page int) ([]domain.Product, *domain.DomainError)
-	CreateProduct(ctx context.Context, params repository.CreateProductParams) (int, *domain.DomainError)
+	ListByCategorySlug(ctx context.Context, categorySlug string, page int) ([]domain.Product, error)
+	ListAll(ctx context.Context, page int) ([]domain.Product, error)
+	Create(ctx context.Context, params repository.CreateProductParams) (int, error)
 }
 
 type ProductService struct {
@@ -24,39 +26,54 @@ func NewProductService(unitOfWork UnitOfWork, productRepository ProductRepositor
 	}
 }
 
-func (s ProductService) CreateProduct(ctx context.Context, createProductDTO dto.CreateProductDTO) (int, *domain.DomainError) {
-	value, domainErr := s.unitOfWork.Do(ctx, func(ctx context.Context, repos Repositories) (any, *domain.DomainError) {
-		categoryID, domainErr := repos.CategoryRepository.GetCategoryIDBySlug(ctx, createProductDTO.CategorySlug)
-		if domainErr != nil {
-			return 0, domainErr
+func (s ProductService) Create(ctx context.Context, createProductDTO dto.CreateProductDTO) (int, error) {
+	value, err := s.unitOfWork.Do(ctx, func(ctx context.Context, repos Repositories) (any, error) {
+		categoryID, err := repos.CategoryRepository.GetIDBySlug(ctx, createProductDTO.CategorySlug)
+		if err != nil {
+			return 0, err
 		}
 
-		productID, domainErr := repos.ProductRepository.CreateProduct(ctx, repository.CreateProductParams{
+		productID, err := repos.ProductRepository.Create(ctx, repository.CreateProductParams{
 			Name:        createProductDTO.Name,
 			Description: createProductDTO.Description,
 			Price:       createProductDTO.Price,
 			Image:       createProductDTO.Image,
 			CategoryID:  categoryID,
 		})
-		if domainErr != nil {
-			return 0, domainErr
+		if err != nil {
+			return 0, err
 		}
 
 		return productID, nil
 	})
 
-	if domainErr != nil {
-		return 0, domainErr
+	if err != nil {
+		return 0, err
 	}
-	productID := value.(int)
+
+	productID, ok := value.(int)
+	if !ok {
+		return 0, fmt.Errorf("product id parse: %w", domain.ErrParse)
+	}
 
 	return productID, nil
 }
 
-func (s ProductService) GetProductsByCategory(ctx context.Context, categorySlug string, page int) ([]dto.GetProductDTO, *domain.DomainError) {
-	products, domainErr := s.productRepository.GetProductsByCategory(ctx, categorySlug, page)
-	if domainErr != nil {
-		return nil, domainErr
+func (s ProductService) List(ctx context.Context, categorySlug string, page int) ([]dto.GetProductDTO, error) {
+	if page <= 0 {
+		return nil, fmt.Errorf("get products by category slug: %w", domain.ErrValidation)
+	}
+
+	var products []domain.Product
+	var err error
+	if categorySlug == "" {
+		products, err = s.productRepository.ListAll(ctx, page)
+	} else {
+		products, err = s.productRepository.ListByCategorySlug(ctx, categorySlug, page)
+	}
+
+	if err != nil {
+		return nil, err
 	}
 	if len(products) == 0 {
 		return []dto.GetProductDTO{}, nil

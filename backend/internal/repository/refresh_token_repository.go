@@ -4,7 +4,7 @@ package repository
 import (
 	"context"
 	"errors"
-	"myapp/internal/constants"
+	"fmt"
 	"myapp/internal/domain"
 	"time"
 
@@ -21,40 +21,43 @@ func NewRefreshTokenRepository(redisClient *redis.Client) RefreshTokenRepository
 	}
 }
 
-func (r RefreshTokenRepository) Set(ctx context.Context, userID, refreshToken, prefix string, ttl time.Duration) *domain.DomainError {
+func (r RefreshTokenRepository) Set(ctx context.Context, userID, refreshToken, prefix string, ttl time.Duration) error {
 	err := r.redisClient.Set(ctx, userID+prefix, refreshToken, ttl).Err()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return &domain.DomainError{Code: constants.RequestTimeout, Message: "request timeout"}
+			return fmt.Errorf("set refresh token by userID %s: %w", userID, domain.ErrTimeout)
 		}
-		return &domain.DomainError{Code: constants.SaveError, Message: "error during save refresh token"}
+
+		return fmt.Errorf("set refresh token by userID %s: %w", userID, err)
 	}
 
 	return nil
 }
 
-func (r RefreshTokenRepository) Delete(ctx context.Context, userID, prefix string) *domain.DomainError {
+func (r RefreshTokenRepository) Delete(ctx context.Context, userID, prefix string) error {
 	err := r.redisClient.Del(ctx, userID+prefix).Err()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return &domain.DomainError{Code: constants.RequestTimeout, Message: "request timeout"}
+			return fmt.Errorf("delete refresh token by userID %s: %w", userID, domain.ErrTimeout)
 		}
-		return &domain.DomainError{Code: constants.DeleteError, Message: "error during delete refresh token"}
+
+		return fmt.Errorf("delete refresh token by userID %s: %w", userID, err)
 	}
 
 	return nil
 }
 
-func (r RefreshTokenRepository) Get(ctx context.Context, userID, prefix string) (string, *domain.DomainError) {
+func (r RefreshTokenRepository) Get(ctx context.Context, userID, prefix string) (string, error) {
 	cmd := r.redisClient.Get(ctx, userID+prefix)
 	if cmd.Err() != nil {
 		if errors.Is(cmd.Err(), context.DeadlineExceeded) {
-			return "", &domain.DomainError{Code: constants.RequestTimeout, Message: "request timeout"}
+			return "", fmt.Errorf("get refresh token by userID %s: %w", userID, domain.ErrTimeout)
 		}
 		if errors.Is(cmd.Err(), redis.Nil) {
 			return "", nil
 		}
-		return "", &domain.DomainError{Code: constants.FindError, Message: "no matches found for this username"}
+
+		return "", fmt.Errorf("get refresh token by userID %s: %w", userID, cmd.Err())
 	}
 
 	return cmd.Val(), nil

@@ -2,37 +2,36 @@ package service
 
 import (
 	"context"
-	"myapp/internal/constants"
-	"myapp/internal/domain"
+	"fmt"
 	"myapp/internal/transport/dto"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserCreater interface {
-	CreateUser(ctx context.Context, userDTO dto.CreateUserDTO) (int, *domain.DomainError)
+	Create(ctx context.Context, userDTO dto.CreateUserDTO) (int, error)
 }
 
 type UserService struct {
 	userCreater UserCreater
 }
 
-func NewUserService(userRepository UserCreater) UserService {
+func NewUserService(userCreater UserCreater) UserService {
 	return UserService{
-		userCreater: userRepository,
+		userCreater: userCreater,
 	}
 }
 
-func (s UserService) CreateUser(ctx context.Context, userDTO dto.CreateUserDTO) (int, *domain.DomainError) {
+func (s UserService) Create(ctx context.Context, userDTO dto.CreateUserDTO) (int, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userDTO.Password), 10)
 	if err != nil {
-		return 0, domain.NewDomainError(constants.InvalidPassword, "error during password hashing")
+		return 0, fmt.Errorf("password hashing: %w", err)
 	}
 	userDTO.Password = string(hashedPassword)
 
-	id, apiErr := s.userCreater.CreateUser(ctx, userDTO)
-	if apiErr != nil {
-		return 0, apiErr
+	id, err := s.userCreater.Create(ctx, userDTO)
+	if err != nil {
+		return 0, err
 	}
 
 	return id, nil

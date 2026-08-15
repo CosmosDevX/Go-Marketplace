@@ -2,9 +2,8 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"myapp/internal/constants"
-	"myapp/internal/domain"
 	"myapp/internal/repository"
 
 	"github.com/jmoiron/sqlx"
@@ -16,7 +15,7 @@ type Repositories struct {
 }
 
 type UnitOfWork interface {
-	Do(ctx context.Context, fn func(ctx context.Context, repos Repositories) (any, *domain.DomainError)) (any, *domain.DomainError)
+	Do(ctx context.Context, fn func(ctx context.Context, repos Repositories) (any, error)) (any, error)
 }
 
 type unitOfWork struct {
@@ -29,10 +28,10 @@ func NewUnitOfWork(db *sqlx.DB) UnitOfWork {
 	}
 }
 
-func (u unitOfWork) Do(ctx context.Context, fn func(ctx context.Context, repos Repositories) (any, *domain.DomainError)) (any, *domain.DomainError) {
+func (u unitOfWork) Do(ctx context.Context, fn func(ctx context.Context, repos Repositories) (any, error)) (any, error) {
 	tx, err := u.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return nil, &domain.DomainError{Code: constants.TransactionError, Message: "transaction start failed"}
+		return nil, fmt.Errorf("transaction start: %w", err)
 	}
 
 	repos := Repositories{
@@ -49,7 +48,7 @@ func (u unitOfWork) Do(ctx context.Context, fn func(ctx context.Context, repos R
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, &domain.DomainError{Code: constants.TransactionError, Message: "transaction commit failed"}
+		return nil, fmt.Errorf("transaction commit: %w", err)
 	}
 
 	return value, nil

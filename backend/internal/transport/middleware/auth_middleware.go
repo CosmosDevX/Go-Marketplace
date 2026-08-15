@@ -3,7 +3,7 @@ package middleware
 
 import (
 	"context"
-	"myapp/internal/constants"
+	"fmt"
 	"myapp/internal/domain"
 	"myapp/internal/logger"
 	"myapp/internal/service/authorization"
@@ -30,20 +30,19 @@ func (m AuthMiddleware) ProtectionMiddleware(next http.Handler) http.Handler {
 		ctx := r.Context()
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			utils.WriteError(w, *domain.NewDomainError(constants.AuthError, "auth header is null"))
+			utils.WriteError(w, fmt.Errorf("auth header is empty: %w", domain.ErrUnauthorized))
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == "" {
-			utils.WriteError(w, *domain.NewDomainError(constants.InvalidTokenError, "token is null"))
+			utils.WriteError(w, fmt.Errorf("token is empty: %w", domain.ErrUnauthorized))
 			return
 		}
 
 		claims, err := m.jwtService.ParseToken(tokenString)
 		if err != nil {
-			logger.FromContext(ctx).Warn("auth middleware: invalid token", "code", err.Code)
-			utils.WriteError(w, *domain.NewDomainError(constants.AuthError, err.Message))
+			utils.WriteError(w, fmt.Errorf("auth token: %w", domain.ErrUnauthorized))
 			return
 		}
 

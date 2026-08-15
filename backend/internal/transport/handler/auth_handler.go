@@ -3,7 +3,7 @@ package handler
 
 import (
 	"context"
-	"myapp/internal/constants"
+	"fmt"
 	"myapp/internal/domain"
 	"myapp/internal/service/authorization"
 	"myapp/internal/transport/dto"
@@ -16,10 +16,17 @@ import (
 )
 
 type AuthService interface {
-	Auth(ctx context.Context, userDTO dto.LoginDTO) (*authorization.AuthResult, *domain.DomainError)
-	Refresh(ctx context.Context, oldRefreshToken string) (*authorization.AuthResult, *domain.DomainError)
-	Logout(ctx context.Context, userID int) *domain.DomainError
+	Auth(ctx context.Context, userDTO dto.LoginDTO) (*authorization.AuthResult, error)
+	Refresh(ctx context.Context, oldRefreshToken string) (*authorization.AuthResult, error)
+	Logout(ctx context.Context, userID int) error
 }
+
+const (
+	refreshTokenKey    = "refresh_token"
+	refreshTokenMaxAge = 3600 * 24 * 7
+	usernameKey        = "username"
+	authRateLimitKey   = "auth"
+)
 
 type AuthHandler struct {
 	authService AuthService
@@ -36,24 +43,24 @@ func NewAuthHandler(authService AuthService, rateLimiter redis_rate.Limiter) Aut
 func (h AuthHandler) HandleAuth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	if err := utils.ActivateRateLimiter(ctx, w, r, constants.AuthRateLimitKey, &h.rateLimiter, redis_rate.PerMinute(5)); err != nil {
+	if err := utils.ActivateRateLimiter(ctx, w, r, authRateLimitKey, &h.rateLimiter, redis_rate.PerMinute(5)); err != nil {
 		return
 	}
 
 	var loginDTO dto.LoginDTO
 	if err := utils.Deserialize(r.Body, &loginDTO); err != nil {
-		utils.WriteError(w, *domain.NewDeserializingError("error during deserializing user"))
+		utils.WriteError(w, fmt.Errorf("login dto deserialize: %w", domain.ErrParse))
 		return
 	}
 
 	if err := validator.Struct(loginDTO); err != nil {
-		utils.WriteError(w, *domain.NewValidationError(err.Error()))
+		utils.WriteError(w, fmt.Errorf("login dto validate: %w", domain.ErrValidation))
 		return
 	}
 
-	authResult, domainErr := h.authService.Auth(ctx, loginDTO)
-	if domainErr != nil {
-		utils.WriteError(w, *domainErr)
+	authResult, err := h.authService.Auth(ctx, loginDTO)
+	if err != nil {
+		utils.WriteError(w, err)
 		return
 	}
 
@@ -65,15 +72,15 @@ func (h AuthHandler) HandleAuth(w http.ResponseWriter, r *http.Request) {
 func (h AuthHandler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	tokenCookie, err := r.Cookie(constants.RefreshTokenKey)
+	tokenCookie, err := r.Cookie(refreshTokenKey)
 	if err != nil || tokenCookie.Value == "" {
-		utils.WriteError(w, *domain.NewDomainError(constants.InvalidTokenError, "refresh token not exists"))
+		utils.WriteError(w, fmt.Errorf("refresh token not exists: %w", domain.ErrUnauthorized))
 		return
 	}
 
-	authResult, domainErr := h.authService.Refresh(ctx, tokenCookie.Value)
-	if domainErr != nil {
-		utils.WriteError(w, *domainErr)
+	authResult, err := h.authService.Refresh(ctx, tokenCookie.Value)
+	if err != nil {
+		utils.WriteError(w, err)
 		return
 	}
 
@@ -85,7 +92,7 @@ func (h AuthHandler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 func (h AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	tokenCookie, err := r.Cookie(constants.RefreshTokenKey)
+	tokenCookie, err := r.Cookie(refreshTokenKey)
 	if err != nil || tokenCookie.Value == "" {
 		utils.WriteJSON(w, map[string]string{"message": "refresh token not exists"})
 		return
@@ -93,17 +100,17 @@ func (h AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 	userID, parseErr := utils.ParseUserID(ctx.Value(middleware.UserIDContextKey{}))
 	if parseErr != nil {
-		utils.WriteError(w, *domain.NewDomainError(constants.ParseError, "error during parse user id"))
+		utils.WriteError(w, fmt.Errorf("user id parse: %w", domain.ErrParse))
 		return
 	}
 
-	if domainErr := h.authService.Logout(ctx, userID); domainErr != nil {
-		utils.WriteError(w, *domainErr)
+	if err := h.authService.Logout(ctx, userID); err != nil {
+		utils.WriteError(w, err)
 		return
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     constants.RefreshTokenKey,
+		Name:     refreshTokenKey,
 		Value:    "",
 		MaxAge:   -1,
 		HttpOnly: true,
@@ -115,9 +122,9 @@ func (h AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 func (h AuthHandler) newRefreshTokenCookie(refreshToken string) *http.Cookie {
 	return &http.Cookie{
-		Name:     constants.RefreshTokenKey,
+		Name:     refreshTokenKey,
 		Value:    refreshToken,
-		MaxAge:   constants.RefreshTokenMaxAge,
+		MaxAge:   refreshTokenMaxAge,
 		Secure:   false,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
