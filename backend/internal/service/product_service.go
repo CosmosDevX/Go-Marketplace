@@ -4,56 +4,45 @@ import (
 	"context"
 	"fmt"
 	"myapp/internal/domain"
-	"myapp/internal/repository"
 	"myapp/internal/transport/dto"
 )
 
 type ProductRepository interface {
 	ListByCategorySlug(ctx context.Context, categorySlug string, page int) ([]domain.Product, error)
 	ListAll(ctx context.Context, page int) ([]domain.Product, error)
-	Create(ctx context.Context, params repository.CreateProductParams) (int, error)
+	Create(ctx context.Context, p domain.Product) (int, error)
+}
+
+type CategoryIDGetter interface {
+	GetIDBySlug(ctx context.Context, categorySlug string) (int, error)
 }
 
 type ProductService struct {
-	unitOfWork        UnitOfWork
 	productRepository ProductRepository
+	categoryIDGetter  CategoryIDGetter
 }
 
-func NewProductService(unitOfWork UnitOfWork, productRepository ProductRepository) ProductService {
+func NewProductService(productRepository ProductRepository, categoryIDGetter CategoryIDGetter) ProductService {
 	return ProductService{
-		unitOfWork:        unitOfWork,
 		productRepository: productRepository,
+		categoryIDGetter:  categoryIDGetter,
 	}
 }
 
-func (s ProductService) Create(ctx context.Context, createProductDTO dto.CreateProductDTO) (int, error) {
-	value, err := s.unitOfWork.Do(ctx, func(ctx context.Context, repos Repositories) (any, error) {
-		categoryID, err := repos.CategoryRepository.GetIDBySlug(ctx, createProductDTO.CategorySlug)
-		if err != nil {
-			return 0, err
-		}
-
-		productID, err := repos.ProductRepository.Create(ctx, repository.CreateProductParams{
-			Name:        createProductDTO.Name,
-			Description: createProductDTO.Description,
-			Price:       createProductDTO.Price,
-			Image:       createProductDTO.Image,
-			CategoryID:  categoryID,
-		})
-		if err != nil {
-			return 0, err
-		}
-
-		return productID, nil
-	})
-
+func (s ProductService) Create(ctx context.Context, dto dto.CreateProductDTO) (int, error) {
+	categoryID, err := s.categoryIDGetter.GetIDBySlug(ctx, dto.CategorySlug)
 	if err != nil {
 		return 0, err
 	}
 
-	productID, ok := value.(int)
-	if !ok {
-		return 0, fmt.Errorf("product id parse: %w", domain.ErrParse)
+	product, err := domain.NewProduct(dto.Name, dto.Description, dto.Image, dto.Price, dto.Quantity, categoryID)
+	if err != nil {
+		return 0, err
+	}
+
+	productID, err := s.productRepository.Create(ctx, product)
+	if err != nil {
+		return 0, err
 	}
 
 	return productID, nil

@@ -24,7 +24,6 @@ type AuthService interface {
 const (
 	refreshTokenKey    = "refresh_token"
 	refreshTokenMaxAge = 3600 * 24 * 7
-	usernameKey        = "username"
 	authRateLimitKey   = "auth"
 )
 
@@ -113,8 +112,10 @@ func (h AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 		Name:     refreshTokenKey,
 		Value:    "",
 		MaxAge:   -1,
+		Secure:   false,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
+		Path:     "/",
 	})
 
 	utils.WriteJSON(w, map[string]string{"message": "logout successful"})
@@ -128,5 +129,6 @@ func (h AuthHandler) newRefreshTokenCookie(refreshToken string) *http.Cookie {
 		Secure:   false,
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
+		Path:     "/",
 	}
 }

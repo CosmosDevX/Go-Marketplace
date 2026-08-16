@@ -11,7 +11,7 @@ import (
 )
 
 type CategoryService interface {
-	Create(ctx context.Context, createCategoryDTO dto.CreateCategoryDTO) (int, error)
+	Create(ctx context.Context, dto dto.CreateCategoryDTO) (int, error)
 	ListAll(ctx context.Context) ([]dto.GetCategoryDTO, error)
 }
 
@@ -30,12 +30,12 @@ func (h CategoryHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	var createCategoryDTO dto.CreateCategoryDTO
 	if err := utils.Deserialize(r.Body, &createCategoryDTO); err != nil {
-		utils.WriteError(w, fmt.Errorf("create category dto deserialize: %w", domain.ErrParse))
+		utils.WriteError(w, fmt.Errorf("create category dto: %w", domain.ErrParse))
 		return
 	}
 
 	if err := validator.Struct(createCategoryDTO); err != nil {
-		utils.WriteError(w, fmt.Errorf("create category dto validate: %w", domain.ErrValidation))
+		utils.WriteError(w, fmt.Errorf("create category dto: %w", domain.ErrValidation))
 		return
 	}
 

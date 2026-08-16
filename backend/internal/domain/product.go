@@ -1,14 +1,49 @@
 package domain
 
-import "github.com/shopspring/decimal"
+import (
+	"fmt"
+
+	"github.com/shopspring/decimal"
+)
 
 type Product struct {
-	ID          int             `db:"product_id"`
-	Name        string          `db:"product_name"`
-	Description string          `db:"product_description"`
-	Price       decimal.Decimal `db:"product_price"`
-	Quantity    int             `db:"product_quantity"`
-	Image       string          `db:"product_image"`
-	Category    Category        `db:"category"`
-	CategoryID  int             `db:"product_category_id"`
+	ID          int
+	Name        string
+	Description string
+	Price       decimal.Decimal
+	Quantity    int
+	Image       string
+	Category    Category
+}
+
+func NewProduct(name, description, image string, price decimal.Decimal, quantity, categoryID int) (Product, error) {
+	if name == "" {
+		return Product{}, fmt.Errorf("name: %w", ErrValidation)
+	}
+	if description == "" {
+		return Product{}, fmt.Errorf("description: %w", ErrValidation)
+	}
+	if image == "" {
+		return Product{}, fmt.Errorf("image: %w", ErrValidation)
+	}
+	if price.LessThanOrEqual(decimal.Zero) {
+		return Product{}, fmt.Errorf("price must be positive: %w", ErrValidation)
+	}
+	if quantity < 0 {
+		return Product{}, fmt.Errorf("quantity must be positive or zero: %w", ErrValidation)
+	}
+	if categoryID <= 0 {
+		return Product{}, fmt.Errorf("category id: %w", ErrValidation)
+	}
+
+	return Product{
+		Name:        name,
+		Description: description,
+		Image:       image,
+		Price:       price,
+		Quantity:    quantity,
+		Category: Category{
+			ID: categoryID,
+		},
+	}, nil
 }

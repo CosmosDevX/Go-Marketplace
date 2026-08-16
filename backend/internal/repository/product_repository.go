@@ -4,11 +4,39 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"myapp/internal/config"
 	"myapp/internal/domain"
 
-	"github.com/lib/pq"
 	"github.com/shopspring/decimal"
 )
+
+type productRow struct {
+	ID           int             `db:"product_id"`
+	Name         string          `db:"product_name"`
+	Description  string          `db:"product_description"`
+	Price        decimal.Decimal `db:"product_price"`
+	Quantity     int             `db:"product_quantity"`
+	Image        string          `db:"product_image"`
+	CategoryID   int             `db:"category_id"`
+	CategoryName string          `db:"category_name"`
+	CategorySlug string          `db:"category_slug"`
+}
+
+func (r productRow) toDomain() domain.Product {
+	return domain.Product{
+		ID:          r.ID,
+		Name:        r.Name,
+		Description: r.Description,
+		Price:       r.Price,
+		Quantity:    r.Quantity,
+		Image:       r.Image,
+		Category: domain.Category{
+			ID:   r.CategoryID,
+			Name: r.CategoryName,
+			Slug: r.CategorySlug,
+		},
+	}
+}
 
 type ProductRepository struct {
 	db DBTX
@@ -20,55 +48,49 @@ func NewProductRepository(db DBTX) ProductRepository {
 	}
 }
 
-type CreateProductParams struct {
-	Name        string
-	Description string
-	Price       decimal.Decimal
-	Image       string
-	CategoryID  int
-}
-
-const productPageSize = 16
-
 func (r ProductRepository) ListAll(ctx context.Context, page int) ([]domain.Product, error) {
 	query := `
 		SELECT 
-			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image,
-			c.category_id AS "category.category_id", c.category_name AS "category.category_name", c.category_slug AS "category.category_slug"
+			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image, p.product_quantity,
+			c.category_id, c.category_name, c.category_slug
 		FROM products AS p
 		JOIN categories AS c ON p.product_category_id = c.category_id
-		LIMIT 16 OFFSET $1
+		LIMIT $1 OFFSET $2
 	`
-	offset := productPageSize * (page - 1)
+	offset := config.ProductPageSize * (page - 1)
 
-	var products []domain.Product
-	err := r.db.SelectContext(ctx, &products, query, offset)
+	var productRows []productRow
+	err := r.db.SelectContext(ctx, &productRows, query, config.ProductPageSize, offset)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf("get all products: %w", domain.ErrTimeout)
 		}
 
 		return nil, fmt.Errorf("get all products: %w", err)
-
 	}
 
-	return products, nil
+	domainModels := make([]domain.Product, len(productRows))
+	for i := range domainModels {
+		domainModels[i] = productRows[i].toDomain()
+	}
+
+	return domainModels, nil
 }
 
 func (r ProductRepository) ListByCategorySlug(ctx context.Context, categorySlug string, page int) ([]domain.Product, error) {
 	query := `
 		SELECT 
-			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image,
-			c.category_id AS "category.category_id", c.category_name AS "category.category_name", c.category_slug AS "category.category_slug"
+			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image, p.product_quantity,
+			c.category_id, c.category_name, c.category_slug
 		FROM products AS p
 		JOIN categories AS c ON p.product_category_id = c.category_id
 		WHERE c.category_slug = $1
-		LIMIT 16 OFFSET $2
+		LIMIT $2 OFFSET $3
 	`
-	offset := productPageSize * (page - 1)
+	offset := config.ProductPageSize * (page - 1)
 
-	var products []domain.Product
-	err := r.db.SelectContext(ctx, &products, query, categorySlug, offset)
+	var productRows []productRow
+	err := r.db.SelectContext(ctx, &productRows, query, categorySlug, config.ProductPageSize, offset)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf("get products by category slug %s: %w", categorySlug, domain.ErrTimeout)
@@ -77,23 +99,24 @@ func (r ProductRepository) ListByCategorySlug(ctx context.Context, categorySlug 
 		return nil, fmt.Errorf("get products by category slug %s: %w", categorySlug, err)
 	}
 
-	return products, nil
+	domainModels := make([]domain.Product, len(productRows))
+	for i := range domainModels {
+		domainModels[i] = productRows[i].toDomain()
+	}
+
+	return domainModels, nil
 }
 
-func (r ProductRepository) Create(ctx context.Context, params CreateProductParams) (int, error) {
+func (r ProductRepository) Create(ctx context.Context, p domain.Product) (int, error) {
 	query := `
-		INSERT INTO products(product_name, product_description, product_price, product_image, product_category_id)
-	 	VALUES($1, $2, $3, $4, $5) RETURNING product_id
+		INSERT INTO products(product_name, product_description, product_price, product_quantity, product_image, product_category_id)
+	 	VALUES($1, $2, $3, $4, $5, $6) RETURNING product_id
 	`
 	var productID int
-	err := r.db.QueryRowContext(ctx, query, params.Name, params.Description, params.Price, params.Image, params.CategoryID).Scan(&productID)
+	err := r.db.QueryRowContext(ctx, query, p.Name, p.Description, p.Price, p.Quantity, p.Image, p.Category.ID).Scan(&productID)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return 0, fmt.Errorf("create product: %w", domain.ErrTimeout)
-		}
-		var pqErr *pq.Error
-		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
-			return 0, fmt.Errorf("create product: %w", domain.ErrUniqueViolation)
 		}
 
 		return 0, fmt.Errorf("create product: %w", err)

@@ -54,7 +54,7 @@ func (r RefreshTokenRepository) Get(ctx context.Context, userID, prefix string) 
 			return "", fmt.Errorf("get refresh token by userID %s: %w", userID, domain.ErrTimeout)
 		}
 		if errors.Is(cmd.Err(), redis.Nil) {
-			return "", nil
+			return "", fmt.Errorf("get refresh token by userID %s: %w", userID, domain.ErrNotFound)
 		}
 
 		return "", fmt.Errorf("get refresh token by userID %s: %w", userID, cmd.Err())

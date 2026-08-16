@@ -12,22 +12,22 @@ type RedisClient struct {
 	client *redis.Client
 }
 
-func NewRedisClient(clientHost string) RedisClient {
-	return RedisClient{
-		client: redis.NewClient(&redis.Options{
-			Addr:        clientHost,
-			Password:    "",
-			DB:          0,
-			PoolSize:    10,
-			PoolTimeout: 30 * time.Second,
-		}),
-	}
-}
+func NewRedisClient(ctx context.Context, clientHost, clientPassword string) RedisClient {
+	client := redis.NewClient(&redis.Options{
+		Addr:        clientHost,
+		Password:    clientPassword,
+		DB:          0,
+		PoolSize:    10,
+		PoolTimeout: 30 * time.Second,
+	})
 
-func (c RedisClient) Setup(ctx context.Context) {
-	_, err := c.client.Ping(ctx).Result()
+	_, err := client.Ping(ctx).Result()
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	return RedisClient{
+		client: client,
 	}
 }
 

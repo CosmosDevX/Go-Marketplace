@@ -2,6 +2,7 @@
 package config
 
 import (
+	"log"
 	"log/slog"
 	"os"
 
@@ -9,11 +10,12 @@ import (
 )
 
 type Config struct {
-	SecretKey          string
-	DBConnectionString string
-	LogFormat          string
-	LogLevel           string
-	RedisClientHost    string
+	SecretKey           string
+	DBConnectionString  string
+	LogFormat           string
+	LogLevel            string
+	RedisClientHost     string
+	RedisClientPassword string
 }
 
 func (c *Config) Load() {
@@ -22,8 +24,18 @@ func (c *Config) Load() {
 	}
 
 	c.SecretKey = os.Getenv("SECRET_KEY")
+	if c.SecretKey == "" {
+		log.Fatal("secret key is empty!")
+	}
 	c.DBConnectionString = os.Getenv("DB_CONNECTION_STRING")
+	if c.DBConnectionString == "" {
+		log.Fatal("db connection string is empty!")
+	}
 	c.LogFormat = os.Getenv("LOG_FORMAT")
 	c.LogLevel = os.Getenv("LOG_LEVEL")
 	c.RedisClientHost = os.Getenv("REDIS_CLIENT_HOST")
+	c.RedisClientPassword = os.Getenv("REDIS_CLIENT_PASSWORD")
+	if c.RedisClientPassword == "" {
+		log.Fatal("redis password is empty!")
+	}
 }

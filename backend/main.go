@@ -23,6 +23,7 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
 	cfg := config.Config{}
 	cfg.Load()
 
@@ -31,8 +32,7 @@ func main() {
 
 	//initialize clients
 	sqlxClient := infrastructure.NewSQLxClient(cfg.DBConnectionString)
-	redisClient := infrastructure.NewRedisClient(cfg.RedisClientHost)
-	unitOfWork := service.NewUnitOfWork(sqlxClient.GetDB())
+	redisClient := infrastructure.NewRedisClient(ctx, cfg.RedisClientHost, cfg.RedisClientPassword)
 	rateLimiter := redis_rate.NewLimiter(redisClient.GetClient())
 
 	//initialize repositories
@@ -46,7 +46,7 @@ func main() {
 	authService := authorization.NewAuthService(userRepository, refreshTokenRepository, jwtService)
 	userService := service.NewUserService(userRepository)
 	categoryService := service.NewCategoryService(categoryRepository)
-	productService := service.NewProductService(unitOfWork, productRepository)
+	productService := service.NewProductService(productRepository, categoryRepository)
 
 	//initialize handlers
 	authHandler := handler.NewAuthHandler(authService, *rateLimiter)
@@ -57,10 +57,13 @@ func main() {
 	//initialize middlewares
 	authMiddleware := middleware.NewAuthMiddleware(jwtService)
 
+	//constants
+	const maxBodySize = 1024 * 1024
+
 	r := chi.NewRouter()
 	r.Use(middleware.CorsMiddleware)
 	r.Use(middleware.LoggingMiddleware)
-	r.Use(chiMiddleware.RequestID)
+	r.Use(middleware.MaxBodySize(maxBodySize))
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(chiMiddleware.Timeout(15 * time.Second))
 
@@ -80,7 +83,7 @@ func main() {
 
 		r.Route("/products", func(r chi.Router) {
 			r.Post("/", productHandler.CreateHandler)
-			r.Get("/", productHandler.ListAllHandler)
+			r.Get("/", productHandler.ListHandler)
 		})
 
 		r.Get("/uploads/{file}", func(w http.ResponseWriter, r *http.Request) {

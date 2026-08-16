@@ -15,8 +15,8 @@ func ActivateRateLimiter(ctx context.Context, w http.ResponseWriter, r *http.Req
 
 	res, err := rateLimiter.Allow(ctx, key+ip, limit)
 	if err != nil {
-		WriteError(w, fmt.Errorf("rate limit allow: %w", domain.ErrTooManyRequests))
-		return errors.New("too many requests err")
+		WriteError(w, fmt.Errorf("rate limit allow: %w", domain.ErrInternalServerError))
+		return errors.New("internal server err")
 	}
 
 	if res.Allowed == 0 {

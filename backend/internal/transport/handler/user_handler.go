@@ -13,7 +13,7 @@ import (
 )
 
 type UserCreater interface {
-	Create(ctx context.Context, userDTO dto.CreateUserDTO) (int, error)
+	Create(ctx context.Context, dto dto.CreateUserDTO) (int, error)
 }
 
 const createUserRateLimitKey = "create_user"
@@ -35,12 +35,12 @@ func (h UserHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	var createUserDTO dto.CreateUserDTO
 	if err := utils.Deserialize(r.Body, &createUserDTO); err != nil {
-		utils.WriteError(w, fmt.Errorf("create user dto deserialize: %w", domain.ErrParse))
+		utils.WriteError(w, fmt.Errorf("create user dto: %w", domain.ErrParse))
 		return
 	}
 
 	if err := validator.Struct(createUserDTO); err != nil {
-		utils.WriteError(w, fmt.Errorf("create user dto validate: %w", domain.ErrValidation))
+		utils.WriteError(w, fmt.Errorf("create user dto: %w", domain.ErrValidation))
 		return
 	}
 

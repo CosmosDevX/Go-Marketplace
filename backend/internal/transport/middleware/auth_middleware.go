@@ -34,6 +34,11 @@ func (m AuthMiddleware) ProtectionMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			utils.WriteError(w, fmt.Errorf("invalid auth scheme type: %w", domain.ErrUnauthorized))
+			return
+		}
+
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == "" {
 			utils.WriteError(w, fmt.Errorf("token is empty: %w", domain.ErrUnauthorized))

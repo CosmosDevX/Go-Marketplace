@@ -36,15 +36,6 @@ func (c SQLxClient) GetDB() *sqlx.DB {
 	return c.db
 }
 
-func (c SQLxClient) CreateTables(schema string) error {
-	_, err := c.db.Exec(schema)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (c SQLxClient) Shutdown() error {
 	if err := c.db.Close(); err != nil {
 		return err

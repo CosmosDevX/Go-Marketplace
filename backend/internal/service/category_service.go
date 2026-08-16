@@ -3,13 +3,12 @@ package service
 import (
 	"context"
 	"myapp/internal/domain"
-	"myapp/internal/repository"
 	"myapp/internal/transport/dto"
 )
 
 type CategoryRepository interface {
 	ListAll(ctx context.Context) ([]domain.Category, error)
-	Create(ctx context.Context, params repository.CreateCategoryParams) (int, error)
+	Create(ctx context.Context, c domain.Category) (int, error)
 }
 
 type CategoryService struct {
@@ -22,8 +21,13 @@ func NewCategoryService(categoryRepository CategoryRepository) CategoryService {
 	}
 }
 
-func (s CategoryService) Create(ctx context.Context, createCategoryDTO dto.CreateCategoryDTO) (int, error) {
-	categoryID, err := s.categoryRepository.Create(ctx, repository.CreateCategoryParams{Name: createCategoryDTO.Name, Slug: createCategoryDTO.Slug})
+func (s CategoryService) Create(ctx context.Context, dto dto.CreateCategoryDTO) (int, error) {
+	category, err := domain.NewCategory(dto.Name, dto.Slug)
+	if err != nil {
+		return 0, err
+	}
+
+	categoryID, err := s.categoryRepository.Create(ctx, category)
 	if err != nil {
 		return 0, err
 	}

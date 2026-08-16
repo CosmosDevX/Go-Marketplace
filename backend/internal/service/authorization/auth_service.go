@@ -56,7 +56,7 @@ func (s AuthService) Auth(ctx context.Context, userDTO dto.LoginDTO) (*AuthResul
 		return nil, err
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(userDTO.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(userDTO.Password)); err != nil {
 		return nil, fmt.Errorf("password compare: %w", domain.ErrUnauthorized)
 	}
 
