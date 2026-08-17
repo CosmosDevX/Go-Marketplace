@@ -89,6 +89,9 @@ func (s AuthService) Refresh(ctx context.Context, oldRefreshToken string) (AuthR
 
 	dbRefreshToken, err := s.refreshTokenRepository.Get(ctx, strconv.Itoa(claims.UserID), tokenWhiteListPrefix)
 	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			return AuthResult{}, fmt.Errorf("refresh token get: %w", domain.ErrUnauthorized)
+		}
 		return AuthResult{}, err
 	}
 	if oldRefreshToken != dbRefreshToken {
@@ -108,10 +111,6 @@ func (s AuthService) Refresh(ctx context.Context, oldRefreshToken string) (AuthR
 }
 
 func (s AuthService) Logout(ctx context.Context, userID int) error {
-	if _, err := s.refreshTokenRepository.Get(ctx, strconv.Itoa(userID), tokenWhiteListPrefix); err != nil {
-		return err
-	}
-
 	if err := s.refreshTokenRepository.Delete(ctx, strconv.Itoa(userID), tokenWhiteListPrefix); err != nil {
 		return err
 	}

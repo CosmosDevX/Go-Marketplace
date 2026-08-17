@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"myapp/internal/domain"
 	"myapp/internal/service"
@@ -30,10 +31,11 @@ func (h CategoryHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var dto dto.CreateCategoryDTO
-	if err := utils.Deserialize(r.Body, &dto); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create category dto: %w", domain.ErrParse))
 		return
 	}
+	defer r.Body.Close()
 
 	if err := validator.Struct(dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create category dto: %w", domain.ErrValidation))
@@ -52,7 +54,7 @@ func (h CategoryHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]int{"category_id": categoryID})
 }
 
-func (h CategoryHandler) ListAllHandler(w http.ResponseWriter, r *http.Request) {
+func (h CategoryHandler) ListHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	categories, err := h.categoryService.List(ctx)

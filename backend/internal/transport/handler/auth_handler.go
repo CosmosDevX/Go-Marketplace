@@ -3,6 +3,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"myapp/internal/domain"
 	"myapp/internal/service/authorization"
@@ -39,7 +40,7 @@ func NewAuthHandler(authService AuthService, rateLimiter redis_rate.Limiter) Aut
 	}
 }
 
-func (h AuthHandler) HandleAuth(w http.ResponseWriter, r *http.Request) {
+func (h AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if err := utils.ActivateRateLimiter(ctx, w, r, authRateLimitKey, &h.rateLimiter, redis_rate.PerMinute(5)); err != nil {
@@ -47,10 +48,11 @@ func (h AuthHandler) HandleAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var dto dto.LoginDTO
-	if err := utils.Deserialize(r.Body, &dto); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("login dto deserialize: %w", domain.ErrParse))
 		return
 	}
+	defer r.Body.Close()
 
 	if err := validator.Struct(dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("login dto validate: %w", domain.ErrValidation))
@@ -71,7 +73,7 @@ func (h AuthHandler) HandleAuth(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]string{"access_token": authResult.AccessToken})
 }
 
-func (h AuthHandler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
+func (h AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	tokenCookie, err := r.Cookie(refreshTokenKey)
@@ -91,7 +93,7 @@ func (h AuthHandler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]string{"access_token": authResult.AccessToken})
 }
 
-func (h AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
+func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	tokenCookie, err := r.Cookie(refreshTokenKey)

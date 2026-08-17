@@ -68,9 +68,9 @@ func main() {
 	r.Use(chiMiddleware.Timeout(15 * time.Second))
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Post("/auth", authHandler.HandleAuth)
-		r.Post("/refresh", authHandler.HandleRefresh)
-		r.With(authMiddleware.ProtectionMiddleware).Post("/logout", authHandler.HandleLogout)
+		r.Post("/auth", authHandler.Auth)
+		r.Post("/refresh", authHandler.Refresh)
+		r.With(authMiddleware.ProtectionMiddleware).Post("/logout", authHandler.Logout)
 
 		r.Route("/users", func(r chi.Router) {
 			r.Post("/", userHandler.CreateHandler)
@@ -78,7 +78,7 @@ func main() {
 
 		r.Route("/categories", func(r chi.Router) {
 			r.Post("/", categoryHandler.CreateHandler)
-			r.Get("/", categoryHandler.ListAllHandler)
+			r.Get("/", categoryHandler.ListHandler)
 		})
 
 		r.Route("/products", func(r chi.Router) {
