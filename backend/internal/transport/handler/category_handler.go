@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"myapp/internal/domain"
+	"myapp/internal/service"
 	"myapp/internal/transport/dto"
 	"myapp/internal/transport/validator"
 	"myapp/internal/utils"
@@ -11,8 +12,8 @@ import (
 )
 
 type CategoryService interface {
-	Create(ctx context.Context, dto dto.CreateCategoryDTO) (int, error)
-	ListAll(ctx context.Context) ([]dto.GetCategoryDTO, error)
+	Create(ctx context.Context, input service.CreateCategoryInput) (int, error)
+	List(ctx context.Context) ([]domain.Category, error)
 }
 
 type CategoryHandler struct {
@@ -28,18 +29,21 @@ func NewCategoryHandler(categoryService CategoryService) CategoryHandler {
 func (h CategoryHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var createCategoryDTO dto.CreateCategoryDTO
-	if err := utils.Deserialize(r.Body, &createCategoryDTO); err != nil {
+	var dto dto.CreateCategoryDTO
+	if err := utils.Deserialize(r.Body, &dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create category dto: %w", domain.ErrParse))
 		return
 	}
 
-	if err := validator.Struct(createCategoryDTO); err != nil {
+	if err := validator.Struct(dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create category dto: %w", domain.ErrValidation))
 		return
 	}
 
-	categoryID, err := h.categoryService.Create(ctx, createCategoryDTO)
+	categoryID, err := h.categoryService.Create(ctx, service.CreateCategoryInput{
+		Name: dto.Name,
+		Slug: dto.Slug,
+	})
 	if err != nil {
 		utils.WriteError(w, err)
 		return
@@ -51,11 +55,16 @@ func (h CategoryHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 func (h CategoryHandler) ListAllHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	getCategoryDTOs, err := h.categoryService.ListAll(ctx)
+	categories, err := h.categoryService.List(ctx)
 	if err != nil {
 		utils.WriteError(w, err)
 		return
 	}
 
-	utils.WriteJSON(w, getCategoryDTOs)
+	dtos := make([]dto.GetCategoryDTO, len(categories))
+	for i := range dtos {
+		dtos[i] = dto.ToGetCategoryDTO(categories[i])
+	}
+
+	utils.WriteJSON(w, dtos)
 }

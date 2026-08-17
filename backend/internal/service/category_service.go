@@ -3,11 +3,15 @@ package service
 import (
 	"context"
 	"myapp/internal/domain"
-	"myapp/internal/transport/dto"
 )
 
+type CreateCategoryInput struct {
+	Name string
+	Slug string
+}
+
 type CategoryRepository interface {
-	ListAll(ctx context.Context) ([]domain.Category, error)
+	List(ctx context.Context) ([]domain.Category, error)
 	Create(ctx context.Context, c domain.Category) (int, error)
 }
 
@@ -21,8 +25,8 @@ func NewCategoryService(categoryRepository CategoryRepository) CategoryService {
 	}
 }
 
-func (s CategoryService) Create(ctx context.Context, dto dto.CreateCategoryDTO) (int, error) {
-	category, err := domain.NewCategory(dto.Name, dto.Slug)
+func (s CategoryService) Create(ctx context.Context, input CreateCategoryInput) (int, error) {
+	category, err := domain.NewCategory(input.Name, input.Slug)
 	if err != nil {
 		return 0, err
 	}
@@ -35,19 +39,11 @@ func (s CategoryService) Create(ctx context.Context, dto dto.CreateCategoryDTO) 
 	return categoryID, nil
 }
 
-func (s CategoryService) ListAll(ctx context.Context) ([]dto.GetCategoryDTO, error) {
-	categories, err := s.categoryRepository.ListAll(ctx)
+func (s CategoryService) List(ctx context.Context) ([]domain.Category, error) {
+	categories, err := s.categoryRepository.List(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if len(categories) == 0 {
-		return []dto.GetCategoryDTO{}, nil
-	}
 
-	dtos := make([]dto.GetCategoryDTO, len(categories))
-	for i := range dtos {
-		dtos[i] = dto.ToGetCategoryDTO(categories[i])
-	}
-
-	return dtos, nil
+	return categories, nil
 }

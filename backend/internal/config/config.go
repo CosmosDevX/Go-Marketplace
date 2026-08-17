@@ -35,7 +35,4 @@ func (c *Config) Load() {
 	c.LogLevel = os.Getenv("LOG_LEVEL")
 	c.RedisClientHost = os.Getenv("REDIS_CLIENT_HOST")
 	c.RedisClientPassword = os.Getenv("REDIS_CLIENT_PASSWORD")
-	if c.RedisClientPassword == "" {
-		log.Fatal("redis password is empty!")
-	}
 }

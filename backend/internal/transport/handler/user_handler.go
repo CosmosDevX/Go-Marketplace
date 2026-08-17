@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"myapp/internal/domain"
+	"myapp/internal/service"
 	"myapp/internal/transport/dto"
 	"myapp/internal/transport/validator"
 	"myapp/internal/utils"
@@ -12,20 +13,20 @@ import (
 	"github.com/go-redis/redis_rate/v10"
 )
 
-type UserCreater interface {
-	Create(ctx context.Context, dto dto.CreateUserDTO) (int, error)
+type UserCreator interface {
+	Create(ctx context.Context, input service.CreateUserInput) (int, error)
 }
 
 const createUserRateLimitKey = "create_user"
 
 type UserHandler struct {
-	userCreater UserCreater
+	userCreator UserCreator
 	rateLimiter redis_rate.Limiter
 }
 
-func NewUserHandler(userCreater UserCreater, rateLimiter redis_rate.Limiter) UserHandler {
+func NewUserHandler(userCreator UserCreator, rateLimiter redis_rate.Limiter) UserHandler {
 	return UserHandler{
-		userCreater: userCreater,
+		userCreator: userCreator,
 		rateLimiter: rateLimiter,
 	}
 }
@@ -33,13 +34,13 @@ func NewUserHandler(userCreater UserCreater, rateLimiter redis_rate.Limiter) Use
 func (h UserHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var createUserDTO dto.CreateUserDTO
-	if err := utils.Deserialize(r.Body, &createUserDTO); err != nil {
+	var dto dto.CreateUserDTO
+	if err := utils.Deserialize(r.Body, &dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create user dto: %w", domain.ErrParse))
 		return
 	}
 
-	if err := validator.Struct(createUserDTO); err != nil {
+	if err := validator.Struct(dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create user dto: %w", domain.ErrValidation))
 		return
 	}
@@ -48,7 +49,11 @@ func (h UserHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := h.userCreater.Create(ctx, createUserDTO)
+	id, err := h.userCreator.Create(ctx, service.CreateUserInput{
+		Username: dto.Username,
+		Password: dto.Password,
+		Email:    dto.Email,
+	})
 	if err != nil {
 		utils.WriteError(w, err)
 		return

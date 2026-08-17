@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"myapp/internal/config"
 	"myapp/internal/domain"
+	"myapp/internal/service"
 	"myapp/internal/transport/dto"
 	"myapp/internal/transport/validator"
 	"myapp/internal/utils"
@@ -13,8 +14,8 @@ import (
 )
 
 type ProductService interface {
-	Create(ctx context.Context, dto dto.CreateProductDTO) (int, error)
-	List(ctx context.Context, categorySlug string, page int) ([]dto.GetProductDTO, error)
+	Create(ctx context.Context, input service.CreateProductInput) (int, error)
+	List(ctx context.Context, categorySlug string, page int) ([]domain.Product, error)
 }
 
 type ProductHandler struct {
@@ -30,18 +31,25 @@ func NewProductHandler(productService ProductService) ProductHandler {
 func (h ProductHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	var createProductDTO dto.CreateProductDTO
-	if err := utils.Deserialize(r.Body, &createProductDTO); err != nil {
+	var dto dto.CreateProductDTO
+	if err := utils.Deserialize(r.Body, &dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create product dto: %w", domain.ErrParse))
 		return
 	}
 
-	if err := validator.Struct(createProductDTO); err != nil {
+	if err := validator.Struct(dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create product dto: %w", domain.ErrValidation))
 		return
 	}
 
-	productID, err := h.productService.Create(ctx, createProductDTO)
+	productID, err := h.productService.Create(ctx, service.CreateProductInput{
+		Name:         dto.Name,
+		Description:  dto.Description,
+		Price:        dto.Price,
+		Quantity:     dto.Quantity,
+		Image:        dto.Image,
+		CategorySlug: dto.CategorySlug,
+	})
 	if err != nil {
 		utils.WriteError(w, err)
 		return
@@ -52,6 +60,7 @@ func (h ProductHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h ProductHandler) ListHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
 	categorySlug := r.URL.Query().Get("category")
 	page, parseErr := strconv.Atoi(r.URL.Query().Get("page"))
 	if parseErr != nil {
@@ -59,14 +68,19 @@ func (h ProductHandler) ListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	getProductDTOs, err := h.productService.List(ctx, categorySlug, page)
+	products, err := h.productService.List(ctx, categorySlug, page)
 	if err != nil {
 		utils.WriteError(w, err)
 		return
 	}
 
+	dtos := make([]dto.GetProductDTO, len(products))
+	for i := range dtos {
+		dtos[i] = dto.ToGetProductDTO(products[i])
+	}
+
 	utils.WriteJSON(w, map[string]any{
-		"products": getProductDTOs,
+		"products": dtos,
 		"page":     page,
 		"limit":    config.ProductPageSize,
 	})

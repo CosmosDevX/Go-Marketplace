@@ -4,12 +4,22 @@ import (
 	"context"
 	"fmt"
 	"myapp/internal/domain"
-	"myapp/internal/transport/dto"
+
+	"github.com/shopspring/decimal"
 )
+
+type CreateProductInput struct {
+	Name         string
+	Description  string
+	Price        decimal.Decimal
+	Quantity     int
+	Image        string
+	CategorySlug string
+}
 
 type ProductRepository interface {
 	ListByCategorySlug(ctx context.Context, categorySlug string, page int) ([]domain.Product, error)
-	ListAll(ctx context.Context, page int) ([]domain.Product, error)
+	List(ctx context.Context, page int) ([]domain.Product, error)
 	Create(ctx context.Context, p domain.Product) (int, error)
 }
 
@@ -29,13 +39,13 @@ func NewProductService(productRepository ProductRepository, categoryIDGetter Cat
 	}
 }
 
-func (s ProductService) Create(ctx context.Context, dto dto.CreateProductDTO) (int, error) {
-	categoryID, err := s.categoryIDGetter.GetIDBySlug(ctx, dto.CategorySlug)
+func (s ProductService) Create(ctx context.Context, input CreateProductInput) (int, error) {
+	categoryID, err := s.categoryIDGetter.GetIDBySlug(ctx, input.CategorySlug)
 	if err != nil {
 		return 0, err
 	}
 
-	product, err := domain.NewProduct(dto.Name, dto.Description, dto.Image, dto.Price, dto.Quantity, categoryID)
+	product, err := domain.NewProduct(input.Name, input.Description, input.Image, input.Price, input.Quantity, categoryID)
 	if err != nil {
 		return 0, err
 	}
@@ -48,7 +58,7 @@ func (s ProductService) Create(ctx context.Context, dto dto.CreateProductDTO) (i
 	return productID, nil
 }
 
-func (s ProductService) List(ctx context.Context, categorySlug string, page int) ([]dto.GetProductDTO, error) {
+func (s ProductService) List(ctx context.Context, categorySlug string, page int) ([]domain.Product, error) {
 	if page <= 0 {
 		return nil, fmt.Errorf("get products by category slug: %w", domain.ErrValidation)
 	}
@@ -56,7 +66,7 @@ func (s ProductService) List(ctx context.Context, categorySlug string, page int)
 	var products []domain.Product
 	var err error
 	if categorySlug == "" {
-		products, err = s.productRepository.ListAll(ctx, page)
+		products, err = s.productRepository.List(ctx, page)
 	} else {
 		products, err = s.productRepository.ListByCategorySlug(ctx, categorySlug, page)
 	}
@@ -64,14 +74,6 @@ func (s ProductService) List(ctx context.Context, categorySlug string, page int)
 	if err != nil {
 		return nil, err
 	}
-	if len(products) == 0 {
-		return []dto.GetProductDTO{}, nil
-	}
 
-	dtos := make([]dto.GetProductDTO, len(products))
-	for i := range dtos {
-		dtos[i] = dto.ToGetProductDTO(products[i])
-	}
-
-	return dtos, nil
+	return products, nil
 }

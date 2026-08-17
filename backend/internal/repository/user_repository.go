@@ -38,23 +38,23 @@ func NewUserRepository(db *sqlx.DB) UserRepository {
 	}
 }
 
-func (r UserRepository) GetByName(ctx context.Context, username string) (*domain.User, error) {
+func (r UserRepository) GetByName(ctx context.Context, username string) (domain.User, error) {
 	query := `SELECT id, username, email, password FROM users WHERE username = $1`
 	var userRow userRow
 	err := r.db.GetContext(ctx, &userRow, query, username)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("get user by name %s: %w", username, domain.ErrTimeout)
+			return domain.User{}, fmt.Errorf("get user by name %s: %w", username, domain.ErrTimeout)
 		}
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("get user by name %s: %w", username, domain.ErrNotFound)
+			return domain.User{}, fmt.Errorf("get user by name %s: %w", username, domain.ErrNotFound)
 		}
 
-		return nil, fmt.Errorf("get user by name %s: %w", username, err)
+		return domain.User{}, fmt.Errorf("get user by name %s: %w", username, err)
 	}
 
 	domainModel := userRow.toDomain()
-	return &domainModel, nil
+	return domainModel, nil
 }
 
 func (r UserRepository) Create(ctx context.Context, u domain.User) (int, error) {

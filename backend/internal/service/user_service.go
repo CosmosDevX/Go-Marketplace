@@ -4,10 +4,15 @@ import (
 	"context"
 	"fmt"
 	"myapp/internal/domain"
-	"myapp/internal/transport/dto"
 
 	"golang.org/x/crypto/bcrypt"
 )
+
+type CreateUserInput struct {
+	Username string
+	Password string
+	Email    string
+}
 
 type UserCreator interface {
 	Create(ctx context.Context, u domain.User) (int, error)
@@ -23,15 +28,15 @@ func NewUserService(userCreator UserCreator) UserService {
 	}
 }
 
-func (s UserService) Create(ctx context.Context, dto dto.CreateUserDTO) (int, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(dto.Password), 10)
+func (s UserService) Create(ctx context.Context, input CreateUserInput) (int, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), 10)
 	if err != nil {
 		return 0, fmt.Errorf("password hashing: %w", err)
 	}
 
 	passwordHash := string(hashedPassword)
 
-	user, err := domain.NewUser(dto.Username, passwordHash, dto.Email)
+	user, err := domain.NewUser(input.Username, passwordHash, input.Email)
 	if err != nil {
 		return 0, err
 	}

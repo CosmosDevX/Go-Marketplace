@@ -48,7 +48,7 @@ func NewProductRepository(db DBTX) ProductRepository {
 	}
 }
 
-func (r ProductRepository) ListAll(ctx context.Context, page int) ([]domain.Product, error) {
+func (r ProductRepository) List(ctx context.Context, page int) ([]domain.Product, error) {
 	query := `
 		SELECT 
 			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image, p.product_quantity,

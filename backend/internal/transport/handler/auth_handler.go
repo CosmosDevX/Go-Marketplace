@@ -16,8 +16,8 @@ import (
 )
 
 type AuthService interface {
-	Auth(ctx context.Context, userDTO dto.LoginDTO) (*authorization.AuthResult, error)
-	Refresh(ctx context.Context, oldRefreshToken string) (*authorization.AuthResult, error)
+	Auth(ctx context.Context, input authorization.LoginInput) (authorization.AuthResult, error)
+	Refresh(ctx context.Context, oldRefreshToken string) (authorization.AuthResult, error)
 	Logout(ctx context.Context, userID int) error
 }
 
@@ -46,18 +46,21 @@ func (h AuthHandler) HandleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var loginDTO dto.LoginDTO
-	if err := utils.Deserialize(r.Body, &loginDTO); err != nil {
+	var dto dto.LoginDTO
+	if err := utils.Deserialize(r.Body, &dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("login dto deserialize: %w", domain.ErrParse))
 		return
 	}
 
-	if err := validator.Struct(loginDTO); err != nil {
+	if err := validator.Struct(dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("login dto validate: %w", domain.ErrValidation))
 		return
 	}
 
-	authResult, err := h.authService.Auth(ctx, loginDTO)
+	authResult, err := h.authService.Auth(ctx, authorization.LoginInput{
+		Username: dto.Username,
+		Password: dto.Password,
+	})
 	if err != nil {
 		utils.WriteError(w, err)
 		return

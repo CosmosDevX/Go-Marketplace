@@ -17,16 +17,11 @@ type UserClaims struct {
 	jwt.RegisteredClaims
 }
 
-type JWTServiceInterface interface {
-	GenerateToken(userID int, username string, expiresAt time.Duration) (string, error)
-	ParseToken(tokenString string) (*UserClaims, error)
-}
-
 type JWTService struct {
 	secretKey []byte
 }
 
-func NewJWTService(secretKey string) JWTServiceInterface {
+func NewJWTService(secretKey string) JWTService {
 	return JWTService{
 		secretKey: []byte(secretKey),
 	}
@@ -53,7 +48,7 @@ func (s JWTService) GenerateToken(userID int, username string, expiresAt time.Du
 	return tokenString, nil
 }
 
-func (s JWTService) ParseToken(tokenString string) (*UserClaims, error) {
+func (s JWTService) ParseToken(tokenString string) (UserClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("incorrect encrypt method")
@@ -63,12 +58,12 @@ func (s JWTService) ParseToken(tokenString string) (*UserClaims, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("token parse: %w", domain.ErrUnauthorized)
+		return UserClaims{}, fmt.Errorf("token parse: %w", domain.ErrUnauthorized)
 	}
 
 	if userClaims, ok := token.Claims.(*UserClaims); ok && token.Valid {
-		return userClaims, nil
+		return *userClaims, nil
 	}
 
-	return nil, fmt.Errorf("token parse: %w", domain.ErrUnauthorized)
+	return UserClaims{}, fmt.Errorf("token parse: %w", domain.ErrUnauthorized)
 }

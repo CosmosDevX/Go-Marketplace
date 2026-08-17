@@ -35,7 +35,7 @@ func NewCategoryRepository(db DBTX) CategoryRepository {
 	}
 }
 
-func (r CategoryRepository) ListAll(ctx context.Context) ([]domain.Category, error) {
+func (r CategoryRepository) List(ctx context.Context) ([]domain.Category, error) {
 	query := `SELECT category_id, category_name, category_slug FROM categories`
 	var categoryRows []categoryRow
 	err := r.db.SelectContext(ctx, &categoryRows, query)

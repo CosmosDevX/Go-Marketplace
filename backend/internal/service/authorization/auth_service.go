@@ -5,20 +5,29 @@ import (
 	"errors"
 	"fmt"
 	"myapp/internal/domain"
-	"myapp/internal/transport/dto"
 	"strconv"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
+type LoginInput struct {
+	Username string
+	Password string
+}
+
 type AuthResult struct {
 	AccessToken  string
 	RefreshToken string
 }
 
+type JWTServiceInterface interface {
+	GenerateToken(userID int, username string, expiresAt time.Duration) (string, error)
+	ParseToken(tokenString string) (UserClaims, error)
+}
+
 type UserGetter interface {
-	GetByName(ctx context.Context, username string) (*domain.User, error)
+	GetByName(ctx context.Context, username string) (domain.User, error)
 }
 
 type RefreshTokenRepository interface {
@@ -47,52 +56,52 @@ func NewAuthService(userGetter UserGetter, refreshTokenRepo RefreshTokenReposito
 	}
 }
 
-func (s AuthService) Auth(ctx context.Context, userDTO dto.LoginDTO) (*AuthResult, error) {
-	user, err := s.userGetter.GetByName(ctx, userDTO.Username)
+func (s AuthService) Auth(ctx context.Context, input LoginInput) (AuthResult, error) {
+	user, err := s.userGetter.GetByName(ctx, input.Username)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			return nil, fmt.Errorf("auth: %w", domain.ErrUnauthorized)
+			return AuthResult{}, fmt.Errorf("auth: %w", domain.ErrUnauthorized)
 		}
-		return nil, err
+		return AuthResult{}, err
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(userDTO.Password)); err != nil {
-		return nil, fmt.Errorf("password compare: %w", domain.ErrUnauthorized)
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
+		return AuthResult{}, fmt.Errorf("password compare: %w", domain.ErrUnauthorized)
 	}
 
 	authResult, err := s.generateTokenPair(user.ID, user.Username)
 	if err != nil {
-		return nil, err
+		return AuthResult{}, err
 	}
 
 	if err := s.refreshTokenRepository.Set(ctx, strconv.Itoa(user.ID), authResult.RefreshToken, tokenWhiteListPrefix, refreshTokenExpiresAt); err != nil {
-		return nil, err
+		return AuthResult{}, err
 	}
 
 	return authResult, nil
 }
 
-func (s AuthService) Refresh(ctx context.Context, oldRefreshToken string) (*AuthResult, error) {
+func (s AuthService) Refresh(ctx context.Context, oldRefreshToken string) (AuthResult, error) {
 	claims, err := s.jwtService.ParseToken(oldRefreshToken)
 	if err != nil {
-		return nil, err
+		return AuthResult{}, err
 	}
 
 	dbRefreshToken, err := s.refreshTokenRepository.Get(ctx, strconv.Itoa(claims.UserID), tokenWhiteListPrefix)
 	if err != nil {
-		return nil, err
+		return AuthResult{}, err
 	}
 	if oldRefreshToken != dbRefreshToken {
-		return nil, fmt.Errorf("refresh tokens comparing: %w", domain.ErrUnauthorized)
+		return AuthResult{}, fmt.Errorf("refresh tokens comparing: %w", domain.ErrUnauthorized)
 	}
 
 	authResult, err := s.generateTokenPair(claims.UserID, claims.Username)
 	if err != nil {
-		return nil, err
+		return AuthResult{}, err
 	}
 
 	if err := s.refreshTokenRepository.Set(ctx, strconv.Itoa(claims.UserID), authResult.RefreshToken, tokenWhiteListPrefix, refreshTokenExpiresAt); err != nil {
-		return nil, err
+		return AuthResult{}, err
 	}
 
 	return authResult, nil
@@ -110,16 +119,16 @@ func (s AuthService) Logout(ctx context.Context, userID int) error {
 	return nil
 }
 
-func (s AuthService) generateTokenPair(userID int, username string) (*AuthResult, error) {
+func (s AuthService) generateTokenPair(userID int, username string) (AuthResult, error) {
 	accessToken, jwtError := s.jwtService.GenerateToken(userID, username, accessTokenExpiresAt)
 	if jwtError != nil {
-		return nil, fmt.Errorf("access token generate: %w", jwtError)
+		return AuthResult{}, fmt.Errorf("access token generate: %w", jwtError)
 	}
 
 	refreshToken, jwtError := s.jwtService.GenerateToken(userID, username, refreshTokenExpiresAt)
 	if jwtError != nil {
-		return nil, fmt.Errorf("refresh token generate: %w", jwtError)
+		return AuthResult{}, fmt.Errorf("refresh token generate: %w", jwtError)
 	}
 
-	return &AuthResult{AccessToken: accessToken, RefreshToken: refreshToken}, nil
+	return AuthResult{AccessToken: accessToken, RefreshToken: refreshToken}, nil
 }
