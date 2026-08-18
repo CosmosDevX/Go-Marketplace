@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"myapp/internal/config"
 	"myapp/internal/domain"
 
 	"golang.org/x/crypto/bcrypt"
@@ -18,13 +19,19 @@ type UserCreator interface {
 	Create(ctx context.Context, u domain.User) (int, error)
 }
 
-type UserService struct {
-	userCreator UserCreator
+type UserRoleCreator interface {
+	Create(ctx context.Context, userID int, roleName string) error
 }
 
-func NewUserService(userCreator UserCreator) UserService {
+type UserService struct {
+	userCreator     UserCreator
+	userRoleCreator UserRoleCreator
+}
+
+func NewUserService(userCreator UserCreator, userRoleCreator UserRoleCreator) UserService {
 	return UserService{
-		userCreator: userCreator,
+		userCreator:     userCreator,
+		userRoleCreator: userRoleCreator,
 	}
 }
 
@@ -41,8 +48,13 @@ func (s UserService) Create(ctx context.Context, input CreateUserInput) (int, er
 		return 0, err
 	}
 
+	//TODO: add transaction: create user, create user role
 	id, err := s.userCreator.Create(ctx, user)
 	if err != nil {
+		return 0, err
+	}
+
+	if err := s.userRoleCreator.Create(ctx, id, config.DefaultUserRole); err != nil {
 		return 0, err
 	}
 

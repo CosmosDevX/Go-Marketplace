@@ -11,4 +11,5 @@ var (
 	ErrUnauthorized        = errors.New("unauthorized")
 	ErrTooManyRequests     = errors.New("too many requests")
 	ErrInternalServerError = errors.New("internal error")
+	ErrForbidden           = errors.New("forbidden")
 )

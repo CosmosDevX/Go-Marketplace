@@ -22,8 +22,13 @@ type AuthResult struct {
 }
 
 type JWTServiceInterface interface {
-	GenerateToken(userID int, username string, expiresAt time.Duration) (string, error)
-	ParseToken(tokenString string) (UserClaims, error)
+	GenerateAccessToken(userID int, roles []string, expiresAt time.Duration) (string, error)
+	GenerateRefreshToken() (string, error)
+	ParseAccessToken(tokenString string) (AccessTokenClaims, error)
+}
+
+type UserRolesGetter interface {
+	ListRolesByUserID(ctx context.Context, userID int) ([]string, error)
 }
 
 type UserGetter interface {
@@ -31,9 +36,10 @@ type UserGetter interface {
 }
 
 type RefreshTokenRepository interface {
-	Set(ctx context.Context, userID, refreshToken, prefix string, ttl time.Duration) error
-	Delete(ctx context.Context, userID, prefix string) error
-	Get(ctx context.Context, userID, prefix string) (string, error)
+	Set(ctx context.Context, refreshToken, userID, prefix string, ttl time.Duration) error
+	Delete(ctx context.Context, refreshToken, prefix string) error
+	Get(ctx context.Context, refreshToken, prefix string) (string, error)
+	GetAndDelete(ctx context.Context, refreshToken, prefix string) (string, error)
 }
 
 const (
@@ -44,13 +50,15 @@ const (
 
 type AuthService struct {
 	userGetter             UserGetter
+	userRolesGetter        UserRolesGetter
 	refreshTokenRepository RefreshTokenRepository
 	jwtService             JWTServiceInterface
 }
 
-func NewAuthService(userGetter UserGetter, refreshTokenRepo RefreshTokenRepository, jwtService JWTServiceInterface) AuthService {
+func NewAuthService(userGetter UserGetter, userRolesGetter UserRolesGetter, refreshTokenRepo RefreshTokenRepository, jwtService JWTServiceInterface) AuthService {
 	return AuthService{
 		userGetter:             userGetter,
+		userRolesGetter:        userRolesGetter,
 		refreshTokenRepository: refreshTokenRepo,
 		jwtService:             jwtService,
 	}
@@ -69,12 +77,12 @@ func (s AuthService) Auth(ctx context.Context, input LoginInput) (AuthResult, er
 		return AuthResult{}, fmt.Errorf("password compare: %w", domain.ErrUnauthorized)
 	}
 
-	authResult, err := s.generateTokenPair(user.ID, user.Username)
+	authResult, err := s.generateTokenPair(ctx, user.ID)
 	if err != nil {
 		return AuthResult{}, err
 	}
 
-	if err := s.refreshTokenRepository.Set(ctx, strconv.Itoa(user.ID), authResult.RefreshToken, tokenWhiteListPrefix, refreshTokenExpiresAt); err != nil {
+	if err := s.refreshTokenRepository.Set(ctx, authResult.RefreshToken, strconv.Itoa(user.ID), tokenWhiteListPrefix, refreshTokenExpiresAt); err != nil {
 		return AuthResult{}, err
 	}
 
@@ -82,51 +90,53 @@ func (s AuthService) Auth(ctx context.Context, input LoginInput) (AuthResult, er
 }
 
 func (s AuthService) Refresh(ctx context.Context, oldRefreshToken string) (AuthResult, error) {
-	claims, err := s.jwtService.ParseToken(oldRefreshToken)
-	if err != nil {
-		return AuthResult{}, err
-	}
-
-	dbRefreshToken, err := s.refreshTokenRepository.Get(ctx, strconv.Itoa(claims.UserID), tokenWhiteListPrefix)
+	value, err := s.refreshTokenRepository.GetAndDelete(ctx, oldRefreshToken, tokenWhiteListPrefix)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return AuthResult{}, fmt.Errorf("refresh token get: %w", domain.ErrUnauthorized)
 		}
 		return AuthResult{}, err
 	}
-	if oldRefreshToken != dbRefreshToken {
-		return AuthResult{}, fmt.Errorf("refresh tokens comparing: %w", domain.ErrUnauthorized)
+
+	userID, err := strconv.Atoi(value)
+	if err != nil {
+		return AuthResult{}, fmt.Errorf("userID parse: %w", domain.ErrParse)
 	}
 
-	authResult, err := s.generateTokenPair(claims.UserID, claims.Username)
+	authResult, err := s.generateTokenPair(ctx, userID)
 	if err != nil {
 		return AuthResult{}, err
 	}
 
-	if err := s.refreshTokenRepository.Set(ctx, strconv.Itoa(claims.UserID), authResult.RefreshToken, tokenWhiteListPrefix, refreshTokenExpiresAt); err != nil {
+	if err := s.refreshTokenRepository.Set(ctx, authResult.RefreshToken, strconv.Itoa(userID), tokenWhiteListPrefix, refreshTokenExpiresAt); err != nil {
 		return AuthResult{}, err
 	}
 
 	return authResult, nil
 }
 
-func (s AuthService) Logout(ctx context.Context, userID int) error {
-	if err := s.refreshTokenRepository.Delete(ctx, strconv.Itoa(userID), tokenWhiteListPrefix); err != nil {
+func (s AuthService) Logout(ctx context.Context, refreshToken string) error {
+	if err := s.refreshTokenRepository.Delete(ctx, refreshToken, tokenWhiteListPrefix); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (s AuthService) generateTokenPair(userID int, username string) (AuthResult, error) {
-	accessToken, jwtError := s.jwtService.GenerateToken(userID, username, accessTokenExpiresAt)
-	if jwtError != nil {
-		return AuthResult{}, fmt.Errorf("access token generate: %w", jwtError)
+func (s AuthService) generateTokenPair(ctx context.Context, userID int) (AuthResult, error) {
+	roles, err := s.userRolesGetter.ListRolesByUserID(ctx, userID)
+	if err != nil {
+		return AuthResult{}, err
 	}
 
-	refreshToken, jwtError := s.jwtService.GenerateToken(userID, username, refreshTokenExpiresAt)
-	if jwtError != nil {
-		return AuthResult{}, fmt.Errorf("refresh token generate: %w", jwtError)
+	accessToken, err := s.jwtService.GenerateAccessToken(userID, roles, accessTokenExpiresAt)
+	if err != nil {
+		return AuthResult{}, fmt.Errorf("access token generate: %w", err)
+	}
+
+	refreshToken, err := s.jwtService.GenerateRefreshToken()
+	if err != nil {
+		return AuthResult{}, fmt.Errorf("refresh token generate: %w", err)
 	}
 
 	return AuthResult{AccessToken: accessToken, RefreshToken: refreshToken}, nil

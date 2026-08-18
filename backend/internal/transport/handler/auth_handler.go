@@ -8,7 +8,6 @@ import (
 	"myapp/internal/domain"
 	"myapp/internal/service/authorization"
 	"myapp/internal/transport/dto"
-	"myapp/internal/transport/middleware"
 	"myapp/internal/transport/validator"
 	"myapp/internal/utils"
 	"net/http"
@@ -19,7 +18,7 @@ import (
 type AuthService interface {
 	Auth(ctx context.Context, input authorization.LoginInput) (authorization.AuthResult, error)
 	Refresh(ctx context.Context, oldRefreshToken string) (authorization.AuthResult, error)
-	Logout(ctx context.Context, userID int) error
+	Logout(ctx context.Context, refreshToken string) error
 }
 
 const (
@@ -52,7 +51,6 @@ func (h AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, fmt.Errorf("login dto deserialize: %w", domain.ErrParse))
 		return
 	}
-	defer r.Body.Close()
 
 	if err := validator.Struct(dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("login dto validate: %w", domain.ErrValidation))
@@ -102,13 +100,7 @@ func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, parseErr := utils.ParseUserID(ctx.Value(middleware.UserIDContextKey{}))
-	if parseErr != nil {
-		utils.WriteError(w, fmt.Errorf("user id parse: %w", domain.ErrParse))
-		return
-	}
-
-	if err := h.authService.Logout(ctx, userID); err != nil {
+	if err := h.authService.Logout(ctx, tokenCookie.Value); err != nil {
 		utils.WriteError(w, err)
 		return
 	}

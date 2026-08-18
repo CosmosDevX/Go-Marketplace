@@ -20,6 +20,8 @@ func MapError(err error) int {
 		return http.StatusUnauthorized
 	case errors.Is(err, domain.ErrTooManyRequests):
 		return http.StatusTooManyRequests
+	case errors.Is(err, domain.ErrForbidden):
+		return http.StatusForbidden
 	default:
 		return http.StatusInternalServerError
 	}
@@ -41,6 +43,8 @@ func PublicMessage(err error) string {
 		return "unauthorized"
 	case errors.Is(err, domain.ErrTooManyRequests):
 		return "too many requests"
+	case errors.Is(err, domain.ErrForbidden):
+		return "forbidden"
 	default:
 		return "internal error"
 	}

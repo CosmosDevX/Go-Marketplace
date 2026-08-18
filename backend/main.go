@@ -37,14 +37,15 @@ func main() {
 
 	//initialize repositories
 	userRepository := repository.NewUserRepository(sqlxClient.GetDB())
+	userRoleRepository := repository.NewUserRoleRepository(sqlxClient.GetDB())
 	categoryRepository := repository.NewCategoryRepository(sqlxClient.GetDB())
 	productRepository := repository.NewProductRepository(sqlxClient.GetDB())
 	refreshTokenRepository := repository.NewRefreshTokenRepository(redisClient.GetClient())
 
 	//initialize services
 	jwtService := authorization.NewJWTService(cfg.SecretKey)
-	authService := authorization.NewAuthService(userRepository, refreshTokenRepository, jwtService)
-	userService := service.NewUserService(userRepository)
+	authService := authorization.NewAuthService(userRepository, userRoleRepository, refreshTokenRepository, jwtService)
+	userService := service.NewUserService(userRepository, userRoleRepository)
 	categoryService := service.NewCategoryService(categoryRepository)
 	productService := service.NewProductService(productRepository, categoryRepository)
 
@@ -70,20 +71,20 @@ func main() {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/auth", authHandler.Auth)
 		r.Post("/refresh", authHandler.Refresh)
-		r.With(authMiddleware.ProtectionMiddleware).Post("/logout", authHandler.Logout)
+		r.Post("/logout", authHandler.Logout)
 
 		r.Route("/users", func(r chi.Router) {
-			r.Post("/", userHandler.CreateHandler)
+			r.Post("/", userHandler.Create)
 		})
 
 		r.Route("/categories", func(r chi.Router) {
-			r.Post("/", categoryHandler.CreateHandler)
-			r.Get("/", categoryHandler.ListHandler)
+			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Post("/", categoryHandler.Create)
+			r.Get("/", categoryHandler.List)
 		})
 
 		r.Route("/products", func(r chi.Router) {
-			r.Post("/", productHandler.CreateHandler)
-			r.Get("/", productHandler.ListHandler)
+			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.SellerRole, config.AdminRole})).Post("/", productHandler.Create)
+			r.Get("/", productHandler.List)
 		})
 
 		r.Get("/uploads/{file}", func(w http.ResponseWriter, r *http.Request) {

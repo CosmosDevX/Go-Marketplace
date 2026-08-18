@@ -27,7 +27,7 @@ func NewCategoryHandler(categoryService CategoryService) CategoryHandler {
 	}
 }
 
-func (h CategoryHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
+func (h CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var dto dto.CreateCategoryDTO
@@ -35,7 +35,6 @@ func (h CategoryHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, fmt.Errorf("create category dto: %w", domain.ErrParse))
 		return
 	}
-	defer r.Body.Close()
 
 	if err := validator.Struct(dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create category dto: %w", domain.ErrValidation))
@@ -54,7 +53,7 @@ func (h CategoryHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]int{"category_id": categoryID})
 }
 
-func (h CategoryHandler) ListHandler(w http.ResponseWriter, r *http.Request) {
+func (h CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	categories, err := h.categoryService.List(ctx)

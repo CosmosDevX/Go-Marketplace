@@ -32,7 +32,7 @@ func NewUserHandler(userCreator UserCreator, rateLimiter redis_rate.Limiter) Use
 	}
 }
 
-func (h UserHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
+func (h UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var dto dto.CreateUserDTO
@@ -40,7 +40,6 @@ func (h UserHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, fmt.Errorf("create user dto: %w", domain.ErrParse))
 		return
 	}
-	defer r.Body.Close()
 
 	if err := validator.Struct(dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create user dto: %w", domain.ErrValidation))

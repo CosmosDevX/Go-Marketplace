@@ -45,10 +45,6 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			"remote_addr", r.RemoteAddr,
 		}
 
-		if userID, ok := r.Context().Value(UserIDContextKey{}).(int); ok && userID != 0 {
-			attrs = append(attrs, "user_id", userID)
-		}
-
 		level := slog.LevelInfo
 		if rw.status >= 500 {
 			level = slog.LevelError

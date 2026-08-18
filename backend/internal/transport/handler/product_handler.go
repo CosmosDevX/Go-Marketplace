@@ -29,7 +29,7 @@ func NewProductHandler(productService ProductService) ProductHandler {
 	}
 }
 
-func (h ProductHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
+func (h ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var dto dto.CreateProductDTO
@@ -37,7 +37,6 @@ func (h ProductHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, fmt.Errorf("create product dto: %w", domain.ErrParse))
 		return
 	}
-	defer r.Body.Close()
 
 	if err := validator.Struct(dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create product dto: %w", domain.ErrValidation))
@@ -60,7 +59,7 @@ func (h ProductHandler) CreateHandler(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]int{"product_id": productID})
 }
 
-func (h ProductHandler) ListHandler(w http.ResponseWriter, r *http.Request) {
+func (h ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	categorySlug := r.URL.Query().Get("category")

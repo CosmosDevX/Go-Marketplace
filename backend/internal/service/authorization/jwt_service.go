@@ -2,6 +2,8 @@
 package authorization
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"time"
@@ -11,9 +13,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type UserClaims struct {
-	UserID   int
-	Username string
+type AccessTokenClaims struct {
+	UserID int
+	Roles  []string
 	jwt.RegisteredClaims
 }
 
@@ -27,10 +29,10 @@ func NewJWTService(secretKey string) JWTService {
 	}
 }
 
-func (s JWTService) GenerateToken(userID int, username string, expiresAt time.Duration) (string, error) {
-	claims := UserClaims{
-		UserID:   userID,
-		Username: username,
+func (s JWTService) GenerateAccessToken(userID int, roles []string, expiresAt time.Duration) (string, error) {
+	claims := AccessTokenClaims{
+		UserID: userID,
+		Roles:  roles,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "myapp",
 			NotBefore: jwt.NewNumericDate(time.Now()),
@@ -42,14 +44,24 @@ func (s JWTService) GenerateToken(userID int, username string, expiresAt time.Du
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(s.secretKey)
 	if err != nil {
-		return "", fmt.Errorf("token sign: %w", err)
+		return "", fmt.Errorf("access token sign: %w", err)
 	}
 
 	return tokenString, nil
 }
 
-func (s JWTService) ParseToken(tokenString string) (UserClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(t *jwt.Token) (any, error) {
+func (s JWTService) GenerateRefreshToken() (string, error) {
+	b := make([]byte, 32)
+
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("refresh token generate: %w", domain.ErrInternalServerError)
+	}
+
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func (s JWTService) ParseAccessToken(tokenString string) (AccessTokenClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &AccessTokenClaims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("incorrect encrypt method")
 		}
@@ -58,12 +70,12 @@ func (s JWTService) ParseToken(tokenString string) (UserClaims, error) {
 	})
 
 	if err != nil {
-		return UserClaims{}, fmt.Errorf("token parse: %w", domain.ErrUnauthorized)
+		return AccessTokenClaims{}, fmt.Errorf("token parse: %w", domain.ErrUnauthorized)
 	}
 
-	if userClaims, ok := token.Claims.(*UserClaims); ok && token.Valid {
+	if userClaims, ok := token.Claims.(*AccessTokenClaims); ok && token.Valid {
 		return *userClaims, nil
 	}
 
-	return UserClaims{}, fmt.Errorf("token parse: %w", domain.ErrUnauthorized)
+	return AccessTokenClaims{}, fmt.Errorf("token parse: %w", domain.ErrUnauthorized)
 }
