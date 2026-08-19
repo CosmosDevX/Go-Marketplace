@@ -39,7 +39,7 @@ func NewAuthHandler(authService AuthService, rateLimiter redis_rate.Limiter) Aut
 	}
 }
 
-func (h AuthHandler) Auth(w http.ResponseWriter, r *http.Request) {
+func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if err := utils.ActivateRateLimiter(ctx, w, r, authRateLimitKey, &h.rateLimiter, redis_rate.PerMinute(5)); err != nil {

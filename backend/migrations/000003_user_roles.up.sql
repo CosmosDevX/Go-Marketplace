@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS user_roles(
     user_role_id SERIAL PRIMARY KEY,
     role_id INTEGER NOT NULL REFERENCES roles(role_id) ON DELETE CASCADE,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(role_id, user_id)
 );

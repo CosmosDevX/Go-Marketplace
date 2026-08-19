@@ -47,7 +47,6 @@ func (h ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Name:         dto.Name,
 		Description:  dto.Description,
 		Price:        dto.Price,
-		Quantity:     dto.Quantity,
 		Image:        dto.Image,
 		CategorySlug: dto.CategorySlug,
 	})

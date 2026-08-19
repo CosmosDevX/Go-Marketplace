@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"log"
 	"myapp/internal/domain"
+	"myapp/internal/repository"
 
 	"github.com/jmoiron/sqlx"
 )
 
 type Repositories struct {
+	UserRepository     repository.UserRepository
+	UserRoleRepository repository.UserRoleRepository
+	CartRepository     repository.CartRepository
 }
 
 type UnitOfWork interface {
@@ -32,7 +36,11 @@ func (u unitOfWork) Do(ctx context.Context, fn func(ctx context.Context, repos R
 		return nil, fmt.Errorf("transaction start: %w", domain.ErrInternalServerError)
 	}
 
-	repos := Repositories{}
+	repos := Repositories{
+		UserRepository:     repository.NewUserRepository(tx),
+		UserRoleRepository: repository.NewUserRoleRepository(tx),
+		CartRepository:     repository.NewCartRepository(tx),
+	}
 	value, err := fn(ctx, repos)
 	if err != nil {
 		if err := tx.Rollback(); err != nil {

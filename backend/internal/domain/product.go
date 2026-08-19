@@ -11,12 +11,11 @@ type Product struct {
 	Name        string
 	Description string
 	Price       decimal.Decimal
-	Quantity    int
 	Image       string
 	Category    Category
 }
 
-func NewProduct(name, description, image string, price decimal.Decimal, quantity, categoryID int) (Product, error) {
+func NewProduct(name, description, image string, price decimal.Decimal, categoryID int) (Product, error) {
 	if name == "" {
 		return Product{}, fmt.Errorf("name: %w", ErrValidation)
 	}
@@ -29,9 +28,6 @@ func NewProduct(name, description, image string, price decimal.Decimal, quantity
 	if price.LessThanOrEqual(decimal.Zero) {
 		return Product{}, fmt.Errorf("price must be positive: %w", ErrValidation)
 	}
-	if quantity < 0 {
-		return Product{}, fmt.Errorf("quantity must be positive or zero: %w", ErrValidation)
-	}
 	if categoryID <= 0 {
 		return Product{}, fmt.Errorf("category id: %w", ErrValidation)
 	}
@@ -41,7 +37,6 @@ func NewProduct(name, description, image string, price decimal.Decimal, quantity
 		Description: description,
 		Image:       image,
 		Price:       price,
-		Quantity:    quantity,
 		Category: Category{
 			ID: categoryID,
 		},

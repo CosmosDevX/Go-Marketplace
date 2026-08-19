@@ -11,6 +11,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const refreshTokenKeySuffix = ":refresh"
+
 type RefreshTokenRepository struct {
 	redisClient *redis.Client
 }
@@ -21,8 +23,8 @@ func NewRefreshTokenRepository(redisClient *redis.Client) RefreshTokenRepository
 	}
 }
 
-func (r RefreshTokenRepository) Set(ctx context.Context, refreshToken, userID, prefix string, ttl time.Duration) error {
-	err := r.redisClient.Set(ctx, refreshToken+prefix, userID, ttl).Err()
+func (r RefreshTokenRepository) Set(ctx context.Context, refreshToken, userID string, ttl time.Duration) error {
+	err := r.redisClient.Set(ctx, refreshToken+refreshTokenKeySuffix, userID, ttl).Err()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("set userID by refresh token: %w", domain.ErrTimeout)
@@ -34,8 +36,8 @@ func (r RefreshTokenRepository) Set(ctx context.Context, refreshToken, userID, p
 	return nil
 }
 
-func (r RefreshTokenRepository) Delete(ctx context.Context, refreshToken, prefix string) error {
-	err := r.redisClient.Del(ctx, refreshToken+prefix).Err()
+func (r RefreshTokenRepository) Delete(ctx context.Context, refreshToken string) error {
+	err := r.redisClient.Del(ctx, refreshToken+refreshTokenKeySuffix).Err()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("delete userID by refresh token: %w", domain.ErrTimeout)
@@ -47,8 +49,8 @@ func (r RefreshTokenRepository) Delete(ctx context.Context, refreshToken, prefix
 	return nil
 }
 
-func (r RefreshTokenRepository) Get(ctx context.Context, refreshToken, prefix string) (string, error) {
-	cmd := r.redisClient.Get(ctx, refreshToken+prefix)
+func (r RefreshTokenRepository) Get(ctx context.Context, refreshToken string) (string, error) {
+	cmd := r.redisClient.Get(ctx, refreshToken+refreshTokenKeySuffix)
 	err := cmd.Err()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -64,18 +66,18 @@ func (r RefreshTokenRepository) Get(ctx context.Context, refreshToken, prefix st
 	return cmd.Val(), nil
 }
 
-func (r RefreshTokenRepository) GetAndDelete(ctx context.Context, refreshToken, prefix string) (string, error) {
-	cmd := r.redisClient.GetDel(ctx, refreshToken+prefix)
+func (r RefreshTokenRepository) GetAndDelete(ctx context.Context, refreshToken string) (string, error) {
+	cmd := r.redisClient.GetDel(ctx, refreshToken+refreshTokenKeySuffix)
 	err := cmd.Err()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return "", fmt.Errorf("delete userID by refresh token: %w", domain.ErrTimeout)
+			return "", fmt.Errorf("get and delete userID by refresh token: %w", domain.ErrTimeout)
 		}
 		if errors.Is(err, redis.Nil) {
-			return "", fmt.Errorf("delete userID by refresh token: %w", domain.ErrNotFound)
+			return "", fmt.Errorf("get and delete userID by refresh token: %w", domain.ErrNotFound)
 		}
 
-		return "", fmt.Errorf("delete userID by refresh token: %w", err)
+		return "", fmt.Errorf("get and delete userID by refresh token: %w", err)
 	}
 
 	return cmd.Val(), nil

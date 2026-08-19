@@ -45,7 +45,7 @@ func (s ProductService) Create(ctx context.Context, input CreateProductInput) (i
 		return 0, err
 	}
 
-	product, err := domain.NewProduct(input.Name, input.Description, input.Image, input.Price, input.Quantity, categoryID)
+	product, err := domain.NewProduct(input.Name, input.Description, input.Image, input.Price, categoryID)
 	if err != nil {
 		return 0, err
 	}
@@ -72,7 +72,7 @@ func (s ProductService) List(ctx context.Context, categorySlug string, page int)
 	}
 
 	if err != nil {
-		return nil, err
+		return []domain.Product{}, err
 	}
 
 	return products, nil

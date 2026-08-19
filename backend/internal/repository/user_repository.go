@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"myapp/internal/domain"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
 
@@ -29,10 +28,10 @@ func (r userRow) toDomain() domain.User {
 }
 
 type UserRepository struct {
-	db *sqlx.DB
+	db DBTX
 }
 
-func NewUserRepository(db *sqlx.DB) UserRepository {
+func NewUserRepository(db DBTX) UserRepository {
 	return UserRepository{
 		db: db,
 	}

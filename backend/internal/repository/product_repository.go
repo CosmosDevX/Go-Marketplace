@@ -15,7 +15,6 @@ type productRow struct {
 	Name         string          `db:"product_name"`
 	Description  string          `db:"product_description"`
 	Price        decimal.Decimal `db:"product_price"`
-	Quantity     int             `db:"product_quantity"`
 	Image        string          `db:"product_image"`
 	CategoryID   int             `db:"category_id"`
 	CategoryName string          `db:"category_name"`
@@ -28,7 +27,6 @@ func (r productRow) toDomain() domain.Product {
 		Name:        r.Name,
 		Description: r.Description,
 		Price:       r.Price,
-		Quantity:    r.Quantity,
 		Image:       r.Image,
 		Category: domain.Category{
 			ID:   r.CategoryID,
@@ -51,7 +49,7 @@ func NewProductRepository(db DBTX) ProductRepository {
 func (r ProductRepository) List(ctx context.Context, page int) ([]domain.Product, error) {
 	query := `
 		SELECT 
-			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image, p.product_quantity,
+			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image,
 			c.category_id, c.category_name, c.category_slug
 		FROM products AS p
 		JOIN categories AS c ON p.product_category_id = c.category_id
@@ -80,7 +78,7 @@ func (r ProductRepository) List(ctx context.Context, page int) ([]domain.Product
 func (r ProductRepository) ListByCategorySlug(ctx context.Context, categorySlug string, page int) ([]domain.Product, error) {
 	query := `
 		SELECT 
-			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image, p.product_quantity,
+			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image,
 			c.category_id, c.category_name, c.category_slug
 		FROM products AS p
 		JOIN categories AS c ON p.product_category_id = c.category_id
@@ -88,7 +86,6 @@ func (r ProductRepository) ListByCategorySlug(ctx context.Context, categorySlug 
 		LIMIT $2 OFFSET $3
 	`
 	offset := config.ProductPageSize * (page - 1)
-
 	var productRows []productRow
 	err := r.db.SelectContext(ctx, &productRows, query, categorySlug, config.ProductPageSize, offset)
 	if err != nil {
@@ -109,11 +106,11 @@ func (r ProductRepository) ListByCategorySlug(ctx context.Context, categorySlug 
 
 func (r ProductRepository) Create(ctx context.Context, p domain.Product) (int, error) {
 	query := `
-		INSERT INTO products(product_name, product_description, product_price, product_quantity, product_image, product_category_id)
-	 	VALUES($1, $2, $3, $4, $5, $6) RETURNING product_id
+		INSERT INTO products(product_name, product_description, product_price, product_image, product_category_id)
+	 	VALUES($1, $2, $3, $4, $5) RETURNING product_id
 	`
 	var productID int
-	err := r.db.QueryRowContext(ctx, query, p.Name, p.Description, p.Price, p.Quantity, p.Image, p.Category.ID).Scan(&productID)
+	err := r.db.QueryRowContext(ctx, query, p.Name, p.Description, p.Price, p.Image, p.Category.ID).Scan(&productID)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return 0, fmt.Errorf("create product: %w", domain.ErrTimeout)

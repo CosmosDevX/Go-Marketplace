@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"myapp/internal/domain"
-
-	"github.com/jmoiron/sqlx"
 )
 
 type userRoleRow struct {
@@ -17,10 +15,10 @@ type userRoleRow struct {
 }
 
 type UserRoleRepository struct {
-	db *sqlx.DB
+	db DBTX
 }
 
-func NewUserRoleRepository(db *sqlx.DB) UserRoleRepository {
+func NewUserRoleRepository(db DBTX) UserRoleRepository {
 	return UserRoleRepository{
 		db: db,
 	}
@@ -49,7 +47,7 @@ func (r UserRoleRepository) Create(ctx context.Context, userID int, roleName str
 	return nil
 }
 
-func (r UserRoleRepository) ListRolesByUserID(ctx context.Context, userID int) ([]string, error) {
+func (r UserRoleRepository) ListByUserID(ctx context.Context, userID int) ([]string, error) {
 	query := `
 		SELECT r.role_name
 		FROM user_roles ur

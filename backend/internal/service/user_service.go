@@ -15,23 +15,13 @@ type CreateUserInput struct {
 	Email    string
 }
 
-type UserCreator interface {
-	Create(ctx context.Context, u domain.User) (int, error)
-}
-
-type UserRoleCreator interface {
-	Create(ctx context.Context, userID int, roleName string) error
-}
-
 type UserService struct {
-	userCreator     UserCreator
-	userRoleCreator UserRoleCreator
+	unitOfWork UnitOfWork
 }
 
-func NewUserService(userCreator UserCreator, userRoleCreator UserRoleCreator) UserService {
+func NewUserService(unitOfWork UnitOfWork) UserService {
 	return UserService{
-		userCreator:     userCreator,
-		userRoleCreator: userRoleCreator,
+		unitOfWork: unitOfWork,
 	}
 }
 
@@ -48,14 +38,30 @@ func (s UserService) Create(ctx context.Context, input CreateUserInput) (int, er
 		return 0, err
 	}
 
-	//TODO: add transaction: create user, create user role
-	id, err := s.userCreator.Create(ctx, user)
+	value, err := s.unitOfWork.Do(ctx, func(ctx context.Context, repos Repositories) (any, error) {
+		id, err := repos.UserRepository.Create(ctx, user)
+		if err != nil {
+			return 0, err
+		}
+
+		if _, err := repos.CartRepository.Create(ctx, id); err != nil {
+			return nil, err
+		}
+
+		if err := repos.UserRoleRepository.Create(ctx, id, config.DefaultUserRole); err != nil {
+			return 0, err
+		}
+
+		return id, nil
+	})
+
 	if err != nil {
 		return 0, err
 	}
 
-	if err := s.userRoleCreator.Create(ctx, id, config.DefaultUserRole); err != nil {
-		return 0, err
+	id, ok := value.(int)
+	if !ok {
+		return 0, fmt.Errorf("id parse: %w", domain.ErrParse)
 	}
 
 	return id, nil

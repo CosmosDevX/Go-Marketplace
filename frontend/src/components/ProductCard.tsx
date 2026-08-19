@@ -1,17 +1,47 @@
-import { motion } from 'framer-motion';
-import { ImageOff, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { ShoppingCart, ImageOff, Loader2, Check } from 'lucide-react';
 import type { Product } from '../types';
 import { formatPrice } from '../utils/emoji';
 import { resolveImageUrl } from '../utils/image';
+import { ApiError } from '../api/client';
 
 interface Props {
   product: Product;
+  onAddToCart: (productId: number) => Promise<void>;
+  requireAuth: () => void;
+  isAuthenticated: boolean;
 }
 
-export function ProductCard({ product }: Props) {
+export function ProductCard({
+  product,
+  onAddToCart,
+  requireAuth,
+  isAuthenticated,
+}: Props) {
   const src = resolveImageUrl(product.product_image);
   const [failed, setFailed] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAdd = async () => {
+    if (!isAuthenticated) {
+      requireAuth();
+      return;
+    }
+    setAdding(true);
+    setError(null);
+    try {
+      await onAddToCart(product.product_id);
+      setAdded(true);
+      setTimeout(() => setAdded(false), 1500);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Не удалось добавить');
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
     <motion.article
@@ -19,7 +49,6 @@ export function ProductCard({ product }: Props) {
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       className="group flex flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden transition-colors hover:border-[var(--color-accent)]/40 hover:bg-[var(--color-surface-hover)]"
     >
-      {/* Image */}
       <div className="relative aspect-square w-full bg-[#1a1a1a] overflow-hidden">
         {src && !failed ? (
           <img
@@ -37,7 +66,6 @@ export function ProductCard({ product }: Props) {
         )}
       </div>
 
-      {/* Content */}
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h3 className="line-clamp-2 text-sm sm:text-base font-medium leading-snug text-[var(--color-text)]">
           {product.product_name}
@@ -47,6 +75,10 @@ export function ProductCard({ product }: Props) {
           {product.product_description}
         </p>
 
+        {error && (
+          <p className="text-xs text-red-300">{error}</p>
+        )}
+
         <div className="mt-auto flex items-center justify-between gap-2 pt-3">
           <span className="text-lg font-semibold text-[var(--color-accent)]">
             {formatPrice(product.product_price)}
@@ -54,13 +86,20 @@ export function ProductCard({ product }: Props) {
 
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-black transition-colors hover:bg-[var(--color-accent-hover)] active:scale-95"
-            onClick={() => {
-              // пока ничего не делаем
-            }}
+            disabled={adding}
+            onClick={handleAdd}
+            className="flex items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-black transition-colors hover:bg-[var(--color-accent-hover)] active:scale-95 disabled:opacity-60"
           >
-            <ShoppingCart size={16} strokeWidth={2.5} />
-            <span className="hidden sm:inline">В корзину</span>
+            {adding ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : added ? (
+              <Check size={16} strokeWidth={2.5} />
+            ) : (
+              <ShoppingCart size={16} strokeWidth={2.5} />
+            )}
+            <span className="hidden sm:inline">
+              {added ? 'Добавлено' : 'В корзину'}
+            </span>
           </button>
         </div>
       </div>

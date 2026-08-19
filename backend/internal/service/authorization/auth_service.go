@@ -21,14 +21,14 @@ type AuthResult struct {
 	RefreshToken string
 }
 
-type JWTServiceInterface interface {
+type HMACJWTService interface {
 	GenerateAccessToken(userID int, roles []string, expiresAt time.Duration) (string, error)
 	GenerateRefreshToken() (string, error)
 	ParseAccessToken(tokenString string) (AccessTokenClaims, error)
 }
 
 type UserRolesGetter interface {
-	ListRolesByUserID(ctx context.Context, userID int) ([]string, error)
+	ListByUserID(ctx context.Context, userID int) ([]string, error)
 }
 
 type UserGetter interface {
@@ -36,26 +36,24 @@ type UserGetter interface {
 }
 
 type RefreshTokenRepository interface {
-	Set(ctx context.Context, refreshToken, userID, prefix string, ttl time.Duration) error
-	Delete(ctx context.Context, refreshToken, prefix string) error
-	Get(ctx context.Context, refreshToken, prefix string) (string, error)
-	GetAndDelete(ctx context.Context, refreshToken, prefix string) (string, error)
+	Set(ctx context.Context, refreshToken, userID string, ttl time.Duration) error
+	Delete(ctx context.Context, refreshToken string) error
+	GetAndDelete(ctx context.Context, refreshToken string) (string, error)
 }
 
 const (
 	accessTokenExpiresAt  = 15 * time.Minute
 	refreshTokenExpiresAt = 24 * time.Hour * 7
-	tokenWhiteListPrefix  = ":tokensWhiteList"
 )
 
 type AuthService struct {
 	userGetter             UserGetter
 	userRolesGetter        UserRolesGetter
 	refreshTokenRepository RefreshTokenRepository
-	jwtService             JWTServiceInterface
+	jwtService             HMACJWTService
 }
 
-func NewAuthService(userGetter UserGetter, userRolesGetter UserRolesGetter, refreshTokenRepo RefreshTokenRepository, jwtService JWTServiceInterface) AuthService {
+func NewAuthService(userGetter UserGetter, userRolesGetter UserRolesGetter, refreshTokenRepo RefreshTokenRepository, jwtService HMACJWTService) AuthService {
 	return AuthService{
 		userGetter:             userGetter,
 		userRolesGetter:        userRolesGetter,
@@ -82,7 +80,7 @@ func (s AuthService) Auth(ctx context.Context, input LoginInput) (AuthResult, er
 		return AuthResult{}, err
 	}
 
-	if err := s.refreshTokenRepository.Set(ctx, authResult.RefreshToken, strconv.Itoa(user.ID), tokenWhiteListPrefix, refreshTokenExpiresAt); err != nil {
+	if err := s.refreshTokenRepository.Set(ctx, authResult.RefreshToken, strconv.Itoa(user.ID), refreshTokenExpiresAt); err != nil {
 		return AuthResult{}, err
 	}
 
@@ -90,7 +88,7 @@ func (s AuthService) Auth(ctx context.Context, input LoginInput) (AuthResult, er
 }
 
 func (s AuthService) Refresh(ctx context.Context, oldRefreshToken string) (AuthResult, error) {
-	value, err := s.refreshTokenRepository.GetAndDelete(ctx, oldRefreshToken, tokenWhiteListPrefix)
+	value, err := s.refreshTokenRepository.GetAndDelete(ctx, oldRefreshToken)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return AuthResult{}, fmt.Errorf("refresh token get: %w", domain.ErrUnauthorized)
@@ -108,7 +106,7 @@ func (s AuthService) Refresh(ctx context.Context, oldRefreshToken string) (AuthR
 		return AuthResult{}, err
 	}
 
-	if err := s.refreshTokenRepository.Set(ctx, authResult.RefreshToken, strconv.Itoa(userID), tokenWhiteListPrefix, refreshTokenExpiresAt); err != nil {
+	if err := s.refreshTokenRepository.Set(ctx, authResult.RefreshToken, strconv.Itoa(userID), refreshTokenExpiresAt); err != nil {
 		return AuthResult{}, err
 	}
 
@@ -116,7 +114,7 @@ func (s AuthService) Refresh(ctx context.Context, oldRefreshToken string) (AuthR
 }
 
 func (s AuthService) Logout(ctx context.Context, refreshToken string) error {
-	if err := s.refreshTokenRepository.Delete(ctx, refreshToken, tokenWhiteListPrefix); err != nil {
+	if err := s.refreshTokenRepository.Delete(ctx, refreshToken); err != nil {
 		return err
 	}
 
@@ -124,7 +122,7 @@ func (s AuthService) Logout(ctx context.Context, refreshToken string) error {
 }
 
 func (s AuthService) generateTokenPair(ctx context.Context, userID int) (AuthResult, error) {
-	roles, err := s.userRolesGetter.ListRolesByUserID(ctx, userID)
+	roles, err := s.userRolesGetter.ListByUserID(ctx, userID)
 	if err != nil {
 		return AuthResult{}, err
 	}

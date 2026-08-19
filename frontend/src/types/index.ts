@@ -19,8 +19,14 @@ export interface ProductsResponse {
   products: Product[];
 }
 
-export interface ApiError {
-  code: string;
+export interface CartItem {
+  cart_item_id: number;
+  cart_id: number;
+  product: Product;
+  quantity: number;
+}
+
+export interface ApiErrorBody {
   message: string;
 }
 

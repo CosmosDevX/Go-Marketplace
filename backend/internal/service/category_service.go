@@ -42,7 +42,7 @@ func (s CategoryService) Create(ctx context.Context, input CreateCategoryInput) 
 func (s CategoryService) List(ctx context.Context) ([]domain.Category, error) {
 	categories, err := s.categoryRepository.List(ctx)
 	if err != nil {
-		return nil, err
+		return []domain.Category{}, err
 	}
 
 	return categories, nil

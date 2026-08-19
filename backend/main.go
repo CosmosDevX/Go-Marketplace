@@ -35,25 +35,31 @@ func main() {
 	redisClient := infrastructure.NewRedisClient(ctx, cfg.RedisClientHost, cfg.RedisClientPassword)
 	rateLimiter := redis_rate.NewLimiter(redisClient.GetClient())
 
+	unitOfWork := service.NewUnitOfWork(sqlxClient.GetDB())
+
 	//initialize repositories
 	userRepository := repository.NewUserRepository(sqlxClient.GetDB())
 	userRoleRepository := repository.NewUserRoleRepository(sqlxClient.GetDB())
 	categoryRepository := repository.NewCategoryRepository(sqlxClient.GetDB())
 	productRepository := repository.NewProductRepository(sqlxClient.GetDB())
+	cartRepository := repository.NewCartRepository(sqlxClient.GetDB())
+	cartItemRepository := repository.NewCartItemRepository(sqlxClient.GetDB())
 	refreshTokenRepository := repository.NewRefreshTokenRepository(redisClient.GetClient())
 
 	//initialize services
 	jwtService := authorization.NewJWTService(cfg.SecretKey)
 	authService := authorization.NewAuthService(userRepository, userRoleRepository, refreshTokenRepository, jwtService)
-	userService := service.NewUserService(userRepository, userRoleRepository)
+	userService := service.NewUserService(unitOfWork)
 	categoryService := service.NewCategoryService(categoryRepository)
 	productService := service.NewProductService(productRepository, categoryRepository)
+	cartItemService := service.NewCartItemService(cartItemRepository, cartRepository)
 
 	//initialize handlers
 	authHandler := handler.NewAuthHandler(authService, *rateLimiter)
 	userHandler := handler.NewUserHandler(userService, *rateLimiter)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 	productHandler := handler.NewProductHandler(productService)
+	cartItemHandler := handler.NewCartItemHandler(cartItemService)
 
 	//initialize middlewares
 	authMiddleware := middleware.NewAuthMiddleware(jwtService)
@@ -69,7 +75,7 @@ func main() {
 	r.Use(chiMiddleware.Timeout(15 * time.Second))
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Post("/auth", authHandler.Auth)
+		r.Post("/auth", authHandler.Login)
 		r.Post("/refresh", authHandler.Refresh)
 		r.Post("/logout", authHandler.Logout)
 
@@ -85,6 +91,13 @@ func main() {
 		r.Route("/products", func(r chi.Router) {
 			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.SellerRole, config.AdminRole})).Post("/", productHandler.Create)
 			r.Get("/", productHandler.List)
+		})
+
+		r.Route("/cart", func(r chi.Router) {
+			r.With(authMiddleware.ProtectionMiddleware).Get("/", cartItemHandler.List)
+			r.With(authMiddleware.ProtectionMiddleware).Post("/items", cartItemHandler.Create)
+			r.With(authMiddleware.ProtectionMiddleware).Patch("/items/{cart_item_id}", cartItemHandler.UpdateQuantity)
+			r.With(authMiddleware.ProtectionMiddleware).Delete("/items/{cart_item_id}", cartItemHandler.Delete)
 		})
 
 		r.Get("/uploads/{file}", func(w http.ResponseWriter, r *http.Request) {

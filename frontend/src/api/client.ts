@@ -1,10 +1,8 @@
 const API_BASE = '/api/v1';
 
 export class ApiError extends Error {
-  code: string;
-  constructor(code: string, message: string) {
+  constructor(message: string) {
     super(message);
-    this.code = code;
     this.name = 'ApiError';
   }
 }
@@ -36,19 +34,16 @@ async function request<T>(
   });
 
   if (!res.ok) {
-    let errorData: { code?: string; message?: string } = {};
+    let message = `HTTP ${res.status}`;
     try {
-      errorData = await res.json();
+      const errorData = await res.json();
+      if (errorData?.message) message = errorData.message;
     } catch {
       // ignore
     }
-    throw new ApiError(
-      errorData.code || 'UNKNOWN_ERROR',
-      errorData.message || `HTTP ${res.status}`
-    );
+    throw new ApiError(message);
   }
 
-  // some endpoints may return empty body
   const text = await res.text();
   if (!text) return {} as T;
   return JSON.parse(text);
@@ -75,7 +70,7 @@ export const api = {
     }),
 
   register: (dto: import('../types').RegisterDto) =>
-    request<{ message?: string } | Record<string, unknown>>('/users', {
+    request<Record<string, unknown>>('/users', {
       method: 'POST',
       body: JSON.stringify(dto),
     }),
@@ -86,7 +81,37 @@ export const api = {
     }),
 
   logout: () =>
-    request<{ message: string }>('/logout', {
-      method: 'POST',
-    }, true),
+    request<{ message: string }>(
+      '/logout',
+      { method: 'POST' },
+      true
+    ),
+
+  // Cart (all require auth)
+  getCart: () =>
+    request<import('../types').CartItem[]>('/cart', {}, true),
+
+  addToCart: (productId: number) =>
+    request<{ cart_item_id: number }>(
+      '/cart/items',
+      {
+        method: 'POST',
+        body: JSON.stringify({ product_id: productId }),
+      },
+      true
+    ),
+
+  updateCartItem: (cartItemId: number, delta: 1 | -1) =>
+    request<{ quantity: number }>(
+      `/cart/items/${cartItemId}?delta=${delta}`,
+      { method: 'PATCH' },
+      true
+    ),
+
+  removeCartItem: (cartItemId: number) =>
+    request<{ message: string }>(
+      `/cart/items/${cartItemId}`,
+      { method: 'DELETE' },
+      true
+    ),
 };

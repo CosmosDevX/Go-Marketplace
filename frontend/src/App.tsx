@@ -5,12 +5,15 @@ import { CategoryChips } from './components/CategoryChips';
 import { ProductCard } from './components/ProductCard';
 import { Pagination } from './components/Pagination';
 import { AuthModal } from './components/AuthModal';
+import { CartDrawer } from './components/CartDrawer';
 import { api, ApiError } from './api/client';
 import { useAuth } from './hooks/useAuth';
+import { useCart } from './hooks/useCart';
 import type { Category, Product } from './types';
 
 function App() {
   const auth = useAuth();
+  const cart = useCart(auth.isAuthenticated);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -22,6 +25,7 @@ function App() {
   const [showLoader, setShowLoader] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [authModal, setAuthModal] = useState<'login' | 'register' | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
 
   const loaderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestId = useRef(0);
@@ -35,8 +39,7 @@ function App() {
         if (!cancelled) setCategories(Array.isArray(data) ? data : []);
       } catch (e) {
         if (!cancelled) {
-          const msg = e instanceof ApiError ? e.message : 'Не удалось загрузить категории';
-          setError(msg);
+          setError(e instanceof ApiError ? e.message : 'Не удалось загрузить категории');
         }
       } finally {
         if (!cancelled) setCategoriesLoading(false);
@@ -52,7 +55,6 @@ function App() {
     setProductsLoading(true);
     setError(null);
 
-    // Показываем лоадер только если запрос длится > 250мс
     if (loaderTimer.current) clearTimeout(loaderTimer.current);
     loaderTimer.current = setTimeout(() => {
       if (requestId.current === id) setShowLoader(true);
@@ -67,8 +69,7 @@ function App() {
       setProducts(Array.isArray(data?.products) ? data.products : []);
     } catch (e) {
       if (requestId.current !== id) return;
-      const msg = e instanceof ApiError ? e.message : 'Не удалось загрузить товары';
-      setError(msg);
+      setError(e instanceof ApiError ? e.message : 'Не удалось загрузить товары');
       setProducts([]);
     } finally {
       if (requestId.current === id) {
@@ -91,15 +92,25 @@ function App() {
     setPage(1);
   };
 
+  const handleCartClick = () => {
+    if (!auth.isAuthenticated) {
+      setAuthModal('login');
+      return;
+    }
+    setCartOpen(true);
+  };
+
   const hasProducts = products.length > 0;
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header
         user={auth.user}
+        cartCount={cart.totalCount}
         onLoginClick={() => setAuthModal('login')}
         onRegisterClick={() => setAuthModal('register')}
         onLogout={auth.logout}
+        onCartClick={handleCartClick}
       />
 
       <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
@@ -139,7 +150,6 @@ function App() {
         )}
 
         <div className="relative min-h-[200px]">
-          {/* Лоадер только если запрос реально долгий */}
           {showLoader && (
             <div
               className={
@@ -168,7 +178,13 @@ function App() {
           {hasProducts && (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
               {products.map((product) => (
-                <ProductCard key={product.product_id} product={product} />
+                <ProductCard
+                  key={product.product_id}
+                  product={product}
+                  isAuthenticated={auth.isAuthenticated}
+                  requireAuth={() => setAuthModal('login')}
+                  onAddToCart={cart.addItem}
+                />
               ))}
             </div>
           )}
@@ -195,6 +211,17 @@ function App() {
           auth.login(token, username);
           setAuthModal(null);
         }}
+      />
+
+      <CartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cart.items}
+        loading={cart.loading}
+        error={cart.error}
+        totalPrice={cart.totalPrice}
+        onChangeQuantity={cart.changeQuantity}
+        onRemove={cart.removeItem}
       />
     </div>
   );
