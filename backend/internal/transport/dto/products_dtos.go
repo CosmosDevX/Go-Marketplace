@@ -13,14 +13,15 @@ type GetProductDTO struct {
 	Price       decimal.Decimal `json:"product_price"`
 	Image       string          `json:"product_image"`
 	Category    GetCategoryDTO  `json:"category"`
+	SellerID    int             `json:"seller_id"`
 }
 
 type CreateProductDTO struct {
 	Name         string          `json:"product_name" validate:"required,min=3,max=60"`
 	Description  string          `json:"product_description" validate:"required,min=3,max=400"`
 	Price        decimal.Decimal `json:"product_price" validate:"required"`
-	Image        string          `json:"product_image" validate:"required"`
-	CategorySlug string          `json:"category_slug" validate:"required,min=5,max=60"`
+	CategorySlug string          `json:"category_slug" validate:"required,min=3,max=60"`
+	SellerID     int             `json:"seller_id" validate:"required"`
 }
 
 func ToGetProductDTO(product domain.Product) GetProductDTO {
@@ -31,5 +32,6 @@ func ToGetProductDTO(product domain.Product) GetProductDTO {
 		Price:       product.Price,
 		Image:       product.Image,
 		Category:    ToGetCategoryDTO(product.Category),
+		SellerID:    product.SellerID,
 	}
 }

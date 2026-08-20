@@ -11,6 +11,7 @@ import (
 	"myapp/internal/service/authorization"
 	"myapp/internal/transport/handler"
 	"myapp/internal/transport/middleware"
+	"myapp/internal/utils"
 	"net/http"
 	"os"
 	"os/signal"
@@ -26,6 +27,8 @@ func main() {
 	ctx := context.Background()
 	cfg := config.Config{}
 	cfg.Load()
+
+	fileManager := utils.NewFileManager()
 
 	logger.Setup(cfg.LogFormat, cfg.LogLevel)
 	slog.Info("starting application")
@@ -51,7 +54,7 @@ func main() {
 	authService := authorization.NewAuthService(userRepository, userRoleRepository, refreshTokenRepository, jwtService)
 	userService := service.NewUserService(unitOfWork)
 	categoryService := service.NewCategoryService(categoryRepository)
-	productService := service.NewProductService(productRepository, categoryRepository)
+	productService := service.NewProductService(unitOfWork, productRepository, categoryRepository, fileManager)
 	cartItemService := service.NewCartItemService(cartItemRepository, cartRepository)
 
 	//initialize handlers
@@ -75,7 +78,7 @@ func main() {
 	r.Use(chiMiddleware.Timeout(15 * time.Second))
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Post("/auth", authHandler.Login)
+		r.Post("/login", authHandler.Login)
 		r.Post("/refresh", authHandler.Refresh)
 		r.Post("/logout", authHandler.Logout)
 
@@ -84,13 +87,19 @@ func main() {
 		})
 
 		r.Route("/categories", func(r chi.Router) {
-			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Post("/", categoryHandler.Create)
 			r.Get("/", categoryHandler.List)
+			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Post("/", categoryHandler.Create)
 		})
 
 		r.Route("/products", func(r chi.Router) {
-			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.SellerRole, config.AdminRole})).Post("/", productHandler.Create)
 			r.Get("/", productHandler.List)
+		})
+
+		r.Route("/seller/products", func(r chi.Router) {
+			r.Use(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.SellerRole, config.AdminRole}))
+			r.Get("/", productHandler.ListBySeller)
+			r.Post("/", productHandler.Create)
+			r.Delete("/{product_id}", productHandler.Delete)
 		})
 
 		r.Route("/cart", func(r chi.Router) {

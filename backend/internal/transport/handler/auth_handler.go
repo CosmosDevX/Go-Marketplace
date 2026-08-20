@@ -68,7 +68,7 @@ func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, h.newRefreshTokenCookie(authResult.RefreshToken))
 
-	utils.WriteJSON(w, map[string]string{"access_token": authResult.AccessToken})
+	utils.WriteJSON(w, map[string]any{"access_token": authResult.AccessToken, "roles": authResult.Roles})
 }
 
 func (h AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +88,7 @@ func (h AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, h.newRefreshTokenCookie(authResult.RefreshToken))
 
-	utils.WriteJSON(w, map[string]string{"access_token": authResult.AccessToken})
+	utils.WriteJSON(w, map[string]any{"access_token": authResult.AccessToken, "roles": authResult.Roles})
 }
 
 func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {

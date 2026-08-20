@@ -26,12 +26,9 @@ export interface CartItem {
   quantity: number;
 }
 
-export interface ApiErrorBody {
-  message: string;
-}
-
 export interface AuthTokens {
   access_token: string;
+  roles: string[];
 }
 
 export interface LoginDto {
@@ -47,4 +44,5 @@ export interface RegisterDto {
 
 export interface UserInfo {
   username: string;
+  roles: string[];
 }

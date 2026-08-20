@@ -17,9 +17,12 @@ async function request<T>(
   auth = false
 ): Promise<T> {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
+
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json';
+  }
 
   if (auth) {
     const token = getAccessToken();
@@ -31,6 +34,7 @@ async function request<T>(
   const res = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
   if (!res.ok) {
@@ -52,6 +56,16 @@ async function request<T>(
 export const api = {
   getCategories: () => request<import('../types').Category[]>('/categories'),
 
+  createCategory: (dto: { category_name: string; category_slug: string }) =>
+    request<Record<string, unknown>>(
+      '/categories',
+      {
+        method: 'POST',
+        body: JSON.stringify(dto),
+      },
+      true
+    ),
+
   getProducts: (params: { page?: number; category?: string } = {}) => {
     const search = new URLSearchParams();
     if (params.page) search.set('page', String(params.page));
@@ -62,9 +76,29 @@ export const api = {
     );
   },
 
-  // Auth
+  getSellerProducts: (page = 1) =>
+    request<import('../types').ProductsResponse>(
+      `/seller/products?page=${page}`,
+      {},
+      true
+    ),
+
+  createProduct: (formData: FormData) =>
+    request<{ product_id: number }>(
+      '/seller/products',
+      { method: 'POST', body: formData },
+      true
+    ),
+
+  deleteProduct: (productId: number) =>
+    request<{ message: string }>(
+      `/seller/products/${productId}`,
+      { method: 'DELETE' },
+      true
+    ),
+
   login: (dto: import('../types').LoginDto) =>
-    request<import('../types').AuthTokens>('/auth', {
+    request<import('../types').AuthTokens>('/login', {
       method: 'POST',
       body: JSON.stringify(dto),
     }),
@@ -81,13 +115,8 @@ export const api = {
     }),
 
   logout: () =>
-    request<{ message: string }>(
-      '/logout',
-      { method: 'POST' },
-      true
-    ),
+    request<{ message: string }>('/logout', { method: 'POST' }, true),
 
-  // Cart (all require auth)
   getCart: () =>
     request<import('../types').CartItem[]>('/cart', {}, true),
 

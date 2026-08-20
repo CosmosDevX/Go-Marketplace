@@ -3,6 +3,7 @@ import { X, Plus, Minus, Trash2, ShoppingBag, Loader2 } from 'lucide-react';
 import type { CartItem } from '../types';
 import { formatPrice } from '../utils/emoji';
 import { resolveImageUrl } from '../utils/image';
+import { IMAGE_CONFIG } from '../config/images';
 import { ApiError } from '../api/client';
 
 interface Props {
@@ -96,7 +97,8 @@ export function CartDrawer({
                     key={item.cart_item_id}
                     className="flex gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3"
                   >
-                    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-[#1a1a1a]">
+                    <div className="shrink-0 overflow-hidden rounded-lg bg-[#1a1a1a]"
+                      style={{ width: IMAGE_CONFIG.CART_THUMB_SIZE, height: IMAGE_CONFIG.CART_THUMB_SIZE }}>
                       {src ? (
                         <img
                           src={src}

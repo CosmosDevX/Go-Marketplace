@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import type { Category } from '../types';
 
 interface Props {
@@ -23,11 +24,7 @@ export function CategoryChips({ categories, activeSlug, onSelect, loading }: Pro
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-      <Chip
-        label="Все"
-        active={activeSlug === null}
-        onClick={() => onSelect(null)}
-      />
+      <Chip label="Все" active={activeSlug === null} onClick={() => onSelect(null)} />
       {categories.map((cat) => (
         <Chip
           key={cat.category_id}
@@ -50,19 +47,21 @@ function Chip({
   onClick: () => void;
 }) {
   return (
-    <button
+    <motion.button
       type="button"
+      whileHover={{ scale: 1.04 }}
+      whileTap={{ scale: 0.96 }}
       onClick={onClick}
       className={`
-        shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors
+        shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-shadow
         ${
           active
-            ? 'bg-[var(--color-accent)] text-black'
-            : 'bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] border border-[var(--color-border)]'
+            ? 'btn-gradient text-black shadow-md shadow-amber-500/25'
+            : 'bg-[var(--color-surface)] text-[var(--color-text-muted)] border border-[var(--color-border)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)]'
         }
       `}
     >
       {label}
-    </button>
+    </motion.button>
   );
 }

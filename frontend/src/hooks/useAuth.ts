@@ -7,62 +7,79 @@ const USER_KEY = 'auth_user';
 
 function parseUsernameFromToken(token: string): string | null {
   try {
-    // JWT payload is the middle part
     const payload = token.split('.')[1];
     if (!payload) return null;
-    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    const decoded = JSON.parse(
+      atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    );
     return decoded.sub || decoded.username || decoded.preferred_username || null;
   } catch {
     return null;
   }
 }
 
-export function useAuth() {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
-  const [user, setUser] = useState<UserInfo | null>(() => {
-    const saved = localStorage.getItem(USER_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return null;
-      }
-    }
+function readStoredUser(): UserInfo | null {
+  const saved = localStorage.getItem(USER_KEY);
+  if (!saved) return null;
+  try {
+    return JSON.parse(saved);
+  } catch {
     return null;
-  });
+  }
+}
+
+export function useAuth() {
+  const [token, setToken] = useState<string | null>(() =>
+    localStorage.getItem(TOKEN_KEY)
+  );
+  const [user, setUser] = useState<UserInfo | null>(() => readStoredUser());
   const [ready, setReady] = useState(false);
 
-  // Try refresh on mount if we have a token
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      const stored = localStorage.getItem(TOKEN_KEY);
-      if (!stored) {
-        setReady(true);
+      const storedToken = localStorage.getItem(TOKEN_KEY);
+      const storedUser = readStoredUser();
+
+      // Сразу восстанавливаем сессию из localStorage — без ожидания refresh
+      if (storedToken) {
+        if (!cancelled) {
+          setToken(storedToken);
+          if (storedUser) setUser(storedUser);
+        }
+      } else {
+        if (!cancelled) {
+          setToken(null);
+          setUser(null);
+          setReady(true);
+        }
         return;
       }
 
+      // Пытаемся обновить токен (cookies через credentials: 'include')
       try {
-        const { access_token } = await api.refresh();
+        const res = await api.refresh();
         if (cancelled) return;
-        localStorage.setItem(TOKEN_KEY, access_token);
-        setToken(access_token);
 
-        const username = parseUsernameFromToken(access_token);
-        if (username) {
-          const u = { username };
+        if (res.access_token) {
+          localStorage.setItem(TOKEN_KEY, res.access_token);
+          setToken(res.access_token);
+
+          const username =
+            storedUser?.username ||
+            parseUsernameFromToken(res.access_token) ||
+            'user';
+          const roles = Array.isArray(res.roles)
+            ? res.roles
+            : storedUser?.roles ?? [];
+          const u: UserInfo = { username, roles };
           localStorage.setItem(USER_KEY, JSON.stringify(u));
           setUser(u);
         }
       } catch {
-        // token invalid — clear
-        if (!cancelled) {
-          localStorage.removeItem(TOKEN_KEY);
-          localStorage.removeItem(USER_KEY);
-          setToken(null);
-          setUser(null);
-        }
+        // Refresh не удался — НЕ разлогиниваем.
+        // Оставляем access_token из localStorage, пока бэкенд сам не ответит 401 на защищённых запросах.
       } finally {
         if (!cancelled) setReady(true);
       }
@@ -73,21 +90,24 @@ export function useAuth() {
     };
   }, []);
 
-  const login = useCallback((accessToken: string, username?: string) => {
-    localStorage.setItem(TOKEN_KEY, accessToken);
-    setToken(accessToken);
+  const login = useCallback(
+    (accessToken: string, username?: string, roles: string[] = []) => {
+      localStorage.setItem(TOKEN_KEY, accessToken);
+      setToken(accessToken);
 
-    const name = username || parseUsernameFromToken(accessToken) || 'user';
-    const u = { username: name };
-    localStorage.setItem(USER_KEY, JSON.stringify(u));
-    setUser(u);
-  }, []);
+      const name = username || parseUsernameFromToken(accessToken) || 'user';
+      const u: UserInfo = { username: name, roles };
+      localStorage.setItem(USER_KEY, JSON.stringify(u));
+      setUser(u);
+    },
+    []
+  );
 
   const logout = useCallback(async () => {
     try {
       await api.logout();
     } catch {
-      // ignore network errors on logout
+      // ignore
     } finally {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
@@ -96,10 +116,15 @@ export function useAuth() {
     }
   }, []);
 
+  const roles = user?.roles ?? [];
+  const canAccessSellerPanel =
+    roles.includes('seller') || roles.includes('admin');
+
   return {
     token,
     user,
     isAuthenticated: !!token,
+    canAccessSellerPanel,
     ready,
     login,
     logout,

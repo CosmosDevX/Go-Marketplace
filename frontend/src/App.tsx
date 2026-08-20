@@ -6,15 +6,19 @@ import { ProductCard } from './components/ProductCard';
 import { Pagination } from './components/Pagination';
 import { AuthModal } from './components/AuthModal';
 import { CartDrawer } from './components/CartDrawer';
+import { SellerPanel } from './components/SellerPanel';
 import { api, ApiError } from './api/client';
 import { useAuth } from './hooks/useAuth';
 import { useCart } from './hooks/useCart';
 import type { Category, Product } from './types';
 
+type View = 'catalog' | 'seller';
+
 function App() {
   const auth = useAuth();
   const cart = useCart(auth.isAuthenticated);
 
+  const [view, setView] = useState<View>('catalog');
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
@@ -50,6 +54,13 @@ function App() {
     };
   }, []);
 
+  // If user loses seller access, leave seller view
+  useEffect(() => {
+    if (!auth.canAccessSellerPanel && view === 'seller') {
+      setView('catalog');
+    }
+  }, [auth.canAccessSellerPanel, view]);
+
   const loadProducts = useCallback(async () => {
     const id = ++requestId.current;
     setProductsLoading(true);
@@ -81,11 +92,12 @@ function App() {
   }, [page, activeCategory]);
 
   useEffect(() => {
+    if (view !== 'catalog') return;
     loadProducts();
     return () => {
       if (loaderTimer.current) clearTimeout(loaderTimer.current);
     };
-  }, [loadProducts]);
+  }, [loadProducts, view]);
 
   const handleCategorySelect = (slug: string | null) => {
     setActiveCategory(slug);
@@ -107,97 +119,113 @@ function App() {
       <Header
         user={auth.user}
         cartCount={cart.totalCount}
+        canAccessSellerPanel={auth.canAccessSellerPanel}
+        onLogoClick={() => setView('catalog')}
         onLoginClick={() => setAuthModal('login')}
         onRegisterClick={() => setAuthModal('register')}
-        onLogout={auth.logout}
+        onLogout={() => {
+          auth.logout();
+          setView('catalog');
+        }}
         onCartClick={handleCartClick}
+        onSellerClick={() => setView('seller')}
       />
 
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-            Каталог товаров
-          </h1>
-          <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-            Выберите категорию или смотрите все товары
-          </p>
-        </div>
-
-        <div className="mb-8">
-          <CategoryChips
-            categories={categories}
-            activeSlug={activeCategory}
-            onSelect={handleCategorySelect}
-            loading={categoriesLoading}
-          />
-        </div>
-
-        {error && (
-          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-            <AlertCircle size={18} className="mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <p>{error}</p>
-              <button
-                type="button"
-                onClick={loadProducts}
-                className="mt-2 inline-flex items-center gap-1.5 text-[var(--color-accent)] hover:underline"
-              >
-                <RefreshCw size={14} />
-                Попробовать снова
-              </button>
-            </div>
+      {view === 'seller' && auth.canAccessSellerPanel ? (
+        <SellerPanel
+          onBack={() => setView('catalog')}
+          categories={categories}
+          isAdmin={auth.user?.roles?.includes('admin') ?? false}
+          onCategoriesChange={setCategories}
+        />
+      ) : (
+        <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
+          <div className="mb-6">
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+              Каталог товаров
+            </h1>
+            <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+              Выберите категорию или смотрите все товары
+            </p>
           </div>
-        )}
 
-        <div className="relative min-h-[200px]">
-          {showLoader && (
-            <div
-              className={
-                hasProducts
-                  ? 'absolute inset-0 z-10 flex items-start justify-center pt-16 bg-[var(--color-background)]/40'
-                  : 'flex items-center justify-center py-24'
-              }
-            >
-              <div className="flex items-center gap-2 rounded-full bg-[var(--color-surface)] px-4 py-2.5 border border-[var(--color-border)]">
-                <Loader2 size={18} className="animate-spin text-[var(--color-accent)]" />
-                <span className="text-sm text-[var(--color-text-muted)]">Загрузка...</span>
+          <div className="mb-8">
+            <CategoryChips
+              categories={categories}
+              activeSlug={activeCategory}
+              onSelect={handleCategorySelect}
+              loading={categoriesLoading}
+            />
+          </div>
+
+          {error && (
+            <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <p>{error}</p>
+                <button
+                  type="button"
+                  onClick={loadProducts}
+                  className="mt-2 inline-flex items-center gap-1.5 text-[var(--color-accent)] hover:underline"
+                >
+                  <RefreshCw size={14} />
+                  Попробовать снова
+                </button>
               </div>
             </div>
           )}
 
-          {!productsLoading && !hasProducts && !error && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <PackageOpen size={48} className="mb-4 text-[var(--color-text-muted)]" />
-              <p className="text-lg font-medium">Товары не найдены</p>
-              <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-                На этой странице товаров нет. Попробуйте предыдущую страницу или другую категорию.
-              </p>
-            </div>
-          )}
+          <div className="relative min-h-[200px]">
+            {showLoader && (
+              <div
+                className={
+                  hasProducts
+                    ? 'absolute inset-0 z-10 flex items-start justify-center pt-16 bg-[var(--color-background)]/40'
+                    : 'flex items-center justify-center py-24'
+                }
+              >
+                <div className="flex items-center gap-2 rounded-full bg-[var(--color-surface)] px-4 py-2.5 border border-[var(--color-border)]">
+                  <Loader2 size={18} className="animate-spin text-[var(--color-accent)]" />
+                  <span className="text-sm text-[var(--color-text-muted)]">Загрузка...</span>
+                </div>
+              </div>
+            )}
 
-          {hasProducts && (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
-              {products.map((product) => (
-                <ProductCard
-                  key={product.product_id}
-                  product={product}
-                  isAuthenticated={auth.isAuthenticated}
-                  requireAuth={() => setAuthModal('login')}
-                  onAddToCart={cart.addItem}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+            {!productsLoading && !hasProducts && !error && (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <PackageOpen size={48} className="mb-4 text-[var(--color-text-muted)]" />
+                <p className="text-lg font-medium">Товары не найдены</p>
+                <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                  На этой странице товаров нет. Попробуйте предыдущую страницу или другую категорию.
+                </p>
+              </div>
+            )}
 
-        <Pagination
-          page={page}
-          hasNext={true}
-          onPrev={() => setPage((p) => Math.max(1, p - 1))}
-          onNext={() => setPage((p) => p + 1)}
-          loading={productsLoading}
-        />
-      </main>
+            {hasProducts && (
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+                {products.map((product, index) => (
+                  <ProductCard
+                    key={product.product_id}
+                    product={product}
+                    index={index}
+                    isAuthenticated={auth.isAuthenticated}
+                    requireAuth={() => setAuthModal('login')}
+                    onAddToCart={cart.addItem}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Pagination
+            page={page}
+            hasNext={true}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => p + 1)}
+            loading={productsLoading}
+          />
+        </main>
+      )}
 
       <footer className="border-t border-[var(--color-border)] py-6 text-center text-xs text-[var(--color-text-muted)]">
         © 2026 MarketPlace · Тёмная тема · Янтарный акцент
@@ -207,8 +235,8 @@ function App() {
         mode={authModal}
         onClose={() => setAuthModal(null)}
         onSwitchMode={(mode) => setAuthModal(mode)}
-        onSuccess={(token, username) => {
-          auth.login(token, username);
+        onSuccess={(token, username, roles) => {
+          auth.login(token, username, roles ?? []);
           setAuthModal(null);
         }}
       />

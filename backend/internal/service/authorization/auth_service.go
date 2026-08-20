@@ -2,6 +2,8 @@ package authorization
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"myapp/internal/domain"
@@ -19,6 +21,7 @@ type LoginInput struct {
 type AuthResult struct {
 	AccessToken  string
 	RefreshToken string
+	Roles        []string
 }
 
 type HMACJWTService interface {
@@ -80,7 +83,7 @@ func (s AuthService) Auth(ctx context.Context, input LoginInput) (AuthResult, er
 		return AuthResult{}, err
 	}
 
-	if err := s.refreshTokenRepository.Set(ctx, authResult.RefreshToken, strconv.Itoa(user.ID), refreshTokenExpiresAt); err != nil {
+	if err := s.refreshTokenRepository.Set(ctx, s.hashRefreshToken(authResult.RefreshToken), strconv.Itoa(user.ID), refreshTokenExpiresAt); err != nil {
 		return AuthResult{}, err
 	}
 
@@ -88,7 +91,7 @@ func (s AuthService) Auth(ctx context.Context, input LoginInput) (AuthResult, er
 }
 
 func (s AuthService) Refresh(ctx context.Context, oldRefreshToken string) (AuthResult, error) {
-	value, err := s.refreshTokenRepository.GetAndDelete(ctx, oldRefreshToken)
+	value, err := s.refreshTokenRepository.GetAndDelete(ctx, s.hashRefreshToken(oldRefreshToken))
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return AuthResult{}, fmt.Errorf("refresh token get: %w", domain.ErrUnauthorized)
@@ -106,7 +109,7 @@ func (s AuthService) Refresh(ctx context.Context, oldRefreshToken string) (AuthR
 		return AuthResult{}, err
 	}
 
-	if err := s.refreshTokenRepository.Set(ctx, authResult.RefreshToken, strconv.Itoa(userID), refreshTokenExpiresAt); err != nil {
+	if err := s.refreshTokenRepository.Set(ctx, s.hashRefreshToken(authResult.RefreshToken), strconv.Itoa(userID), refreshTokenExpiresAt); err != nil {
 		return AuthResult{}, err
 	}
 
@@ -114,7 +117,7 @@ func (s AuthService) Refresh(ctx context.Context, oldRefreshToken string) (AuthR
 }
 
 func (s AuthService) Logout(ctx context.Context, refreshToken string) error {
-	if err := s.refreshTokenRepository.Delete(ctx, refreshToken); err != nil {
+	if err := s.refreshTokenRepository.Delete(ctx, s.hashRefreshToken(refreshToken)); err != nil {
 		return err
 	}
 
@@ -137,5 +140,10 @@ func (s AuthService) generateTokenPair(ctx context.Context, userID int) (AuthRes
 		return AuthResult{}, fmt.Errorf("refresh token generate: %w", err)
 	}
 
-	return AuthResult{AccessToken: accessToken, RefreshToken: refreshToken}, nil
+	return AuthResult{AccessToken: accessToken, RefreshToken: refreshToken, Roles: roles}, nil
+}
+
+func (s AuthService) hashRefreshToken(rawToken string) string {
+	sum := sha256.Sum224([]byte(rawToken))
+	return hex.EncodeToString(sum[:])
 }

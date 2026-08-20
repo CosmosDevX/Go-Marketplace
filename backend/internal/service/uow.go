@@ -14,6 +14,7 @@ type Repositories struct {
 	UserRepository     repository.UserRepository
 	UserRoleRepository repository.UserRoleRepository
 	CartRepository     repository.CartRepository
+	ProductRepository  repository.ProductRepository
 }
 
 type UnitOfWork interface {
@@ -40,6 +41,7 @@ func (u unitOfWork) Do(ctx context.Context, fn func(ctx context.Context, repos R
 		UserRepository:     repository.NewUserRepository(tx),
 		UserRoleRepository: repository.NewUserRoleRepository(tx),
 		CartRepository:     repository.NewCartRepository(tx),
+		ProductRepository:  repository.NewProductRepository(tx),
 	}
 	value, err := fn(ctx, repos)
 	if err != nil {
