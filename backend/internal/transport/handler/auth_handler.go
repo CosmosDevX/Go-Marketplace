@@ -8,6 +8,7 @@ import (
 	"myapp/internal/domain"
 	"myapp/internal/service/authorization"
 	"myapp/internal/transport/dto"
+	"myapp/internal/transport/middleware"
 	"myapp/internal/transport/validator"
 	"myapp/internal/utils"
 	"net/http"
@@ -18,7 +19,7 @@ import (
 type AuthService interface {
 	Auth(ctx context.Context, input authorization.LoginInput) (authorization.AuthResult, error)
 	Refresh(ctx context.Context, oldRefreshToken string) (authorization.AuthResult, error)
-	Logout(ctx context.Context, refreshToken string) error
+	Logout(ctx context.Context, refreshToken, accessToken string) error
 }
 
 const (
@@ -87,7 +88,6 @@ func (h AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, h.newRefreshTokenCookie(authResult.RefreshToken))
-
 	utils.WriteJSON(w, map[string]any{"access_token": authResult.AccessToken, "roles": authResult.Roles})
 }
 
@@ -96,11 +96,16 @@ func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	tokenCookie, err := r.Cookie(refreshTokenKey)
 	if err != nil || tokenCookie.Value == "" {
-		utils.WriteJSON(w, map[string]string{"message": "refresh token not exists"})
+		utils.WriteError(w, fmt.Errorf("refresh token not exists: %w", domain.ErrUnauthorized))
 		return
 	}
 
-	if err := h.authService.Logout(ctx, tokenCookie.Value); err != nil {
+	user, err := middleware.UserFromContext(ctx)
+	if err != nil {
+		utils.WriteError(w, err)
+		return
+	}
+	if err := h.authService.Logout(ctx, tokenCookie.Value, user.AccessToken); err != nil {
 		utils.WriteError(w, err)
 		return
 	}

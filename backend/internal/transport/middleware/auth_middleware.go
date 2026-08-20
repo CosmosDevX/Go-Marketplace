@@ -16,20 +16,27 @@ type JWTServiceInterface interface {
 	ParseAccessToken(tokenString string) (authorization.AccessTokenClaims, error)
 }
 
-type AuthMiddleware struct {
-	jwtService JWTServiceInterface
+type AccessTokenBlacklistChecker interface {
+	Exists(ctx context.Context, accessTokenHash string) (bool, error)
 }
 
-func NewAuthMiddleware(jwtService JWTServiceInterface) AuthMiddleware {
+type AuthMiddleware struct {
+	jwtService            JWTServiceInterface
+	tokenBlacklistChecker AccessTokenBlacklistChecker
+}
+
+func NewAuthMiddleware(jwtService JWTServiceInterface, tokenBlacklistChecker AccessTokenBlacklistChecker) AuthMiddleware {
 	return AuthMiddleware{
-		jwtService: jwtService,
+		jwtService:            jwtService,
+		tokenBlacklistChecker: tokenBlacklistChecker,
 	}
 }
 
 type UserContextKey struct{}
 type UserContext struct {
-	UserID int
-	Roles  []string
+	UserID      int
+	Roles       []string
+	AccessToken string
 }
 
 func UserFromContext(ctx context.Context) (UserContext, error) {
@@ -68,9 +75,20 @@ func (m AuthMiddleware) ProtectionMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		isExists, err := m.tokenBlacklistChecker.Exists(ctx, utils.HashToken(tokenString))
+		if err != nil {
+			utils.WriteError(w, err)
+			return
+		}
+		if isExists {
+			utils.WriteError(w, fmt.Errorf("access token in blacklist: %w", domain.ErrUnauthorized))
+			return
+		}
+
 		ctx = context.WithValue(ctx, UserContextKey{}, UserContext{
-			UserID: claims.UserID,
-			Roles:  claims.Roles,
+			UserID:      claims.UserID,
+			Roles:       claims.Roles,
+			AccessToken: tokenString,
 		})
 		ctx = logger.WithUserID(ctx, claims.UserID)
 

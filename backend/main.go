@@ -48,10 +48,11 @@ func main() {
 	cartRepository := repository.NewCartRepository(sqlxClient.GetDB())
 	cartItemRepository := repository.NewCartItemRepository(sqlxClient.GetDB())
 	refreshTokenRepository := repository.NewRefreshTokenRepository(redisClient.GetClient())
+	accessTokenRepository := repository.NewAccessTokenRepository(redisClient.GetClient())
 
 	//initialize services
 	jwtService := authorization.NewJWTService(cfg.SecretKey)
-	authService := authorization.NewAuthService(userRepository, userRoleRepository, refreshTokenRepository, jwtService)
+	authService := authorization.NewAuthService(userRepository, userRoleRepository, refreshTokenRepository, accessTokenRepository, jwtService)
 	userService := service.NewUserService(unitOfWork)
 	categoryService := service.NewCategoryService(categoryRepository)
 	productService := service.NewProductService(unitOfWork, productRepository, categoryRepository, fileManager)
@@ -65,7 +66,7 @@ func main() {
 	cartItemHandler := handler.NewCartItemHandler(cartItemService)
 
 	//initialize middlewares
-	authMiddleware := middleware.NewAuthMiddleware(jwtService)
+	authMiddleware := middleware.NewAuthMiddleware(jwtService, accessTokenRepository)
 
 	//constants
 	const maxBodySize = 1024 * 1024
@@ -80,7 +81,7 @@ func main() {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/login", authHandler.Login)
 		r.Post("/refresh", authHandler.Refresh)
-		r.Post("/logout", authHandler.Logout)
+		r.With(authMiddleware.ProtectionMiddleware).Post("/logout", authHandler.Logout)
 
 		r.Route("/users", func(r chi.Router) {
 			r.Post("/", userHandler.Create)

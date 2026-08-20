@@ -11,7 +11,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-const refreshTokenKeySuffix = ":refresh"
+const (
+	refreshTokenTTL       = 24 * time.Hour * 7
+	refreshTokenKeySuffix = ":refresh"
+)
 
 type RefreshTokenRepository struct {
 	redisClient *redis.Client
@@ -23,8 +26,8 @@ func NewRefreshTokenRepository(redisClient *redis.Client) RefreshTokenRepository
 	}
 }
 
-func (r RefreshTokenRepository) Set(ctx context.Context, refreshToken, userID string, ttl time.Duration) error {
-	err := r.redisClient.Set(ctx, refreshToken+refreshTokenKeySuffix, userID, ttl).Err()
+func (r RefreshTokenRepository) Set(ctx context.Context, refreshToken, userID string) error {
+	err := r.redisClient.Set(ctx, refreshToken+refreshTokenKeySuffix, userID, refreshTokenTTL).Err()
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("set userID by refresh token: %w", domain.ErrTimeout)
