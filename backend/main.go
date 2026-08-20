@@ -67,12 +67,13 @@ func main() {
 
 	//initialize middlewares
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, accessTokenRepository)
+	corsMiddleware := middleware.NewCORSMiddleware(cfg.CORSAllowedHost)
 
 	//constants
 	const maxBodySize = 1024 * 1024
 
 	r := chi.NewRouter()
-	r.Use(middleware.CorsMiddleware)
+	r.Use(corsMiddleware.ActivateCORS)
 	r.Use(middleware.LoggingMiddleware)
 	r.Use(middleware.MaxBodySize(maxBodySize))
 	r.Use(chiMiddleware.Recoverer)

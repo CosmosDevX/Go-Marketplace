@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"mime/multipart"
+	"myapp/internal/config"
 	"myapp/internal/domain"
 
 	"github.com/shopspring/decimal"
@@ -23,6 +24,9 @@ type ProductRepository interface {
 	ListBySellerID(ctx context.Context, sellerID, page int) ([]domain.Product, error)
 	ListByCategorySlug(ctx context.Context, categorySlug string, page int) ([]domain.Product, error)
 	List(ctx context.Context, page int) ([]domain.Product, error)
+	Create(ctx context.Context, p domain.Product) (int, error)
+	GetImageByID(ctx context.Context, productID, sellerID int) (string, error)
+	Delete(ctx context.Context, productID, sellerID int) error
 }
 
 type FileManager interface {
@@ -56,39 +60,22 @@ func (s ProductService) Create(ctx context.Context, input CreateProductInput) (i
 		return 0, err
 	}
 
-	value, err := s.unitOfWork.Do(ctx, func(ctx context.Context, repos Repositories) (any, error) {
-		filename, err := s.fileManager.SaveFile(input.File, input.Header, "uploads")
-		if err != nil {
-			return 0, err
-		}
-
-		product, err := domain.NewProduct(input.Name, input.Description, filename, input.Price, categoryID, input.SellerID)
-		if err != nil {
-			if err := s.fileManager.DeleteFile("/uploads", filename); err != nil {
-				return 0, err
-			}
-			return 0, err
-		}
-
-		productID, err := repos.ProductRepository.Create(ctx, product)
-		if err != nil {
-			if err := s.fileManager.DeleteFile("/uploads", filename); err != nil {
-				return 0, err
-			}
-
-			return 0, err
-		}
-
-		return productID, nil
-	})
-
+	filename, err := s.fileManager.SaveFile(input.File, input.Header, "uploads")
 	if err != nil {
 		return 0, err
 	}
 
-	productID, ok := value.(int)
-	if !ok {
-		return 0, fmt.Errorf("productID parse: %w", domain.ErrParse)
+	product, err := domain.NewProduct(input.Name, input.Description, filename, input.Price, categoryID, input.SellerID)
+	if err != nil {
+		if err := s.fileManager.DeleteFile(config.UploadsPath, filename); err != nil {
+			return 0, err
+		}
+		return 0, err
+	}
+
+	productID, err := s.productRepository.Create(ctx, product)
+	if err != nil {
+		return 0, err
 	}
 
 	return productID, nil
@@ -128,24 +115,16 @@ func (s ProductService) ListBySellerID(ctx context.Context, sellerID, page int) 
 }
 
 func (s ProductService) Delete(ctx context.Context, productID, sellerID int) error {
-	_, err := s.unitOfWork.Do(ctx, func(ctx context.Context, repos Repositories) (any, error) {
-		filename, err := repos.ProductRepository.GetImageByID(ctx, productID, sellerID)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := repos.ProductRepository.Delete(ctx, productID, sellerID); err != nil {
-			return nil, err
-		}
-
-		if err := s.fileManager.DeleteFile("/uploads", filename); err != nil {
-			return nil, err
-		}
-
-		return nil, nil
-	})
-
+	filename, err := s.productRepository.GetImageByID(ctx, productID, sellerID)
 	if err != nil {
+		return err
+	}
+
+	if err := s.productRepository.Delete(ctx, productID, sellerID); err != nil {
+		return err
+	}
+
+	if err := s.fileManager.DeleteFile(config.UploadsPath, filename); err != nil {
 		return err
 	}
 

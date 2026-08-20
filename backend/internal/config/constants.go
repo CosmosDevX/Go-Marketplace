@@ -8,4 +8,5 @@ const (
 	DefaultUserRole = "user"
 	SellerRole      = "seller"
 	AdminRole       = "admin"
+	UploadsPath     = "/uploads"
 )

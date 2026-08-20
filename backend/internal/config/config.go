@@ -16,6 +16,7 @@ type Config struct {
 	LogLevel            string
 	RedisClientHost     string
 	RedisClientPassword string
+	CORSAllowedHost     string
 }
 
 func (c *Config) Load() {
@@ -35,4 +36,5 @@ func (c *Config) Load() {
 	c.LogLevel = os.Getenv("LOG_LEVEL")
 	c.RedisClientHost = os.Getenv("REDIS_CLIENT_HOST")
 	c.RedisClientPassword = os.Getenv("REDIS_CLIENT_PASSWORD")
+	c.CORSAllowedHost = os.Getenv("CORS_ALLOWED_HOST")
 }
