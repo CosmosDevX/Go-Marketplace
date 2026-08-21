@@ -117,6 +117,24 @@ export const api = {
   logout: () =>
     request<{ message: string }>('/logout', { method: 'POST' }, true),
 
+  // Roles (admin)
+  grantRole: (dto: { username: string; role: string }) =>
+    request<{ message: string }>(
+      '/roles',
+      { method: 'POST', body: JSON.stringify(dto) },
+      true
+    ),
+
+  revokeRole: (username: string, role: string) =>
+    request<{ message: string }>(
+      `/roles/user/${encodeURIComponent(username)}/role/${encodeURIComponent(role)}`,
+      { method: 'DELETE' },
+      true
+    ),
+
+  getUserRoles: (username: string) =>
+    request<string[]>(`/roles/${encodeURIComponent(username)}`, {}, true),
+
   getCart: () =>
     request<import('../types').CartItem[]>('/cart', {}, true),
 

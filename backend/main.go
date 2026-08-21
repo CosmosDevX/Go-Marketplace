@@ -28,7 +28,7 @@ func main() {
 	cfg := config.Config{}
 	cfg.Load()
 
-	fileManager := utils.NewFileManager()
+	fileManager := utils.NewFileManager(cfg.UploadsDir)
 
 	logger.Setup(cfg.LogFormat, cfg.LogLevel)
 	slog.Info("starting application")
@@ -55,8 +55,9 @@ func main() {
 	authService := authorization.NewAuthService(userRepository, userRoleRepository, refreshTokenRepository, accessTokenRepository, jwtService)
 	userService := service.NewUserService(unitOfWork)
 	categoryService := service.NewCategoryService(categoryRepository)
-	productService := service.NewProductService(unitOfWork, productRepository, categoryRepository, fileManager)
+	productService := service.NewProductService(productRepository, categoryRepository, fileManager)
 	cartItemService := service.NewCartItemService(cartItemRepository, cartRepository)
+	userRoleService := service.NewUserRoleService(userRoleRepository, userRepository)
 
 	//initialize handlers
 	authHandler := handler.NewAuthHandler(authService, *rateLimiter)
@@ -64,6 +65,7 @@ func main() {
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 	productHandler := handler.NewProductHandler(productService)
 	cartItemHandler := handler.NewCartItemHandler(cartItemService)
+	userRolehandler := handler.NewUserRoleHandler(userRoleService)
 
 	//initialize middlewares
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, accessTokenRepository)
@@ -102,6 +104,12 @@ func main() {
 			r.Get("/", productHandler.ListBySeller)
 			r.Post("/", productHandler.Create)
 			r.Delete("/{product_id}", productHandler.Delete)
+		})
+
+		r.Route("/roles", func(r chi.Router) {
+			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Get("/{username}", userRolehandler.List)
+			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Post("/", userRolehandler.Create)
+			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Delete("/user/{username}/role/{rolename}", userRolehandler.Delete)
 		})
 
 		r.Route("/cart", func(r chi.Router) {

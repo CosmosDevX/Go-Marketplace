@@ -12,7 +12,7 @@ import { useAuth } from './hooks/useAuth';
 import { useCart } from './hooks/useCart';
 import type { Category, Product } from './types';
 
-type View = 'catalog' | 'seller';
+type View = 'catalog' | 'seller' | 'admin';
 
 function App() {
   const auth = useAuth();
@@ -56,10 +56,13 @@ function App() {
 
   // If user loses seller access, leave seller view
   useEffect(() => {
-    if (!auth.canAccessSellerPanel && view === 'seller') {
+    if (view === 'seller' && !auth.canAccessSellerPanel) {
       setView('catalog');
     }
-  }, [auth.canAccessSellerPanel, view]);
+    if (view === 'admin' && !auth.canAccessAdminPanel) {
+      setView('catalog');
+    }
+  }, [auth.canAccessSellerPanel, auth.canAccessAdminPanel, view]);
 
   const loadProducts = useCallback(async () => {
     const id = ++requestId.current;
@@ -120,6 +123,7 @@ function App() {
         user={auth.user}
         cartCount={cart.totalCount}
         canAccessSellerPanel={auth.canAccessSellerPanel}
+        canAccessAdminPanel={auth.canAccessAdminPanel}
         onLogoClick={() => setView('catalog')}
         onLoginClick={() => setAuthModal('login')}
         onRegisterClick={() => setAuthModal('register')}
@@ -129,13 +133,15 @@ function App() {
         }}
         onCartClick={handleCartClick}
         onSellerClick={() => setView('seller')}
+        onAdminClick={() => setView('admin')}
       />
 
-      {view === 'seller' && auth.canAccessSellerPanel ? (
+      {(view === 'admin' && auth.canAccessAdminPanel) ||
+      (view === 'seller' && auth.canAccessSellerPanel) ? (
         <SellerPanel
           onBack={() => setView('catalog')}
           categories={categories}
-          isAdmin={auth.user?.roles?.includes('admin') ?? false}
+          isAdmin={view === 'admin'}
           onCategoriesChange={setCategories}
         />
       ) : (

@@ -17,6 +17,7 @@ type Config struct {
 	RedisClientHost     string
 	RedisClientPassword string
 	CORSAllowedHost     string
+	UploadsDir          string
 }
 
 func (c *Config) Load() {
@@ -37,4 +38,5 @@ func (c *Config) Load() {
 	c.RedisClientHost = os.Getenv("REDIS_CLIENT_HOST")
 	c.RedisClientPassword = os.Getenv("REDIS_CLIENT_PASSWORD")
 	c.CORSAllowedHost = os.Getenv("CORS_ALLOWED_HOST")
+	c.UploadsDir = os.Getenv("UPLOADS_DIR")
 }

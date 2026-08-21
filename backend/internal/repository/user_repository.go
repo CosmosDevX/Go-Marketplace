@@ -56,6 +56,23 @@ func (r UserRepository) GetByName(ctx context.Context, username string) (domain.
 	return domainModel, nil
 }
 
+func (r UserRepository) GetNameByID(ctx context.Context, userID int) (string, error) {
+	query := `SELECT username FROM users WHERE id = $1`
+	var username string
+	if err := r.db.GetContext(ctx, &username, query, userID); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return "", fmt.Errorf("get username by userID %d: %w", userID, domain.ErrTimeout)
+		}
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", fmt.Errorf("get username by userID %d: %w", userID, domain.ErrNotFound)
+		}
+
+		return "", fmt.Errorf("get username by userID %d: %w", userID, err)
+	}
+
+	return username, nil
+}
+
 func (r UserRepository) Create(ctx context.Context, u domain.User) (int, error) {
 	query := `INSERT INTO users(username, password, email) VALUES($1, $2, $3) RETURNING id`
 	var id int

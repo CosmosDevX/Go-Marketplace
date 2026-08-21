@@ -15,6 +15,7 @@ import { resolveImageUrl } from '../utils/image';
 import { IMAGE_CONFIG } from '../config/images';
 import { Pagination } from './Pagination';
 import { ConfirmModal } from './ConfirmModal';
+import { AdminRoles } from './AdminRoles';
 
 interface Props {
   onBack: () => void;
@@ -69,7 +70,10 @@ export function SellerPanel({
     }, 250);
 
     try {
-      const data = await api.getSellerProducts(page);
+      // admin — все товары каталога; seller — только свои
+      const data = isAdmin
+        ? await api.getProducts({ page })
+        : await api.getSellerProducts(page);
       if (requestId.current !== id) return;
       setProducts(Array.isArray(data?.products) ? data.products : []);
     } catch (e) {
@@ -83,7 +87,7 @@ export function SellerPanel({
         setShowLoader(false);
       }
     }
-  }, [page]);
+  }, [page, isAdmin]);
 
   useEffect(() => {
     loadProducts();
@@ -169,7 +173,6 @@ export function SellerPanel({
     }
   };
 
-  // авто-slug из названия
   const onCatNameChange = (value: string) => {
     setCatName(value);
     setCatSlug(
@@ -180,6 +183,8 @@ export function SellerPanel({
         .replace(/[^a-z0-9а-яё\-]/gi, '')
     );
   };
+
+  const title = isAdmin ? 'Панель администрирования' : 'Панель продавца';
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 py-6 sm:py-8">
@@ -193,7 +198,7 @@ export function SellerPanel({
             <ArrowLeft size={16} />
             Каталог
           </button>
-          <h1 className="text-2xl font-semibold tracking-tight">Панель продавца</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -211,21 +216,24 @@ export function SellerPanel({
               {showCategoryForm ? 'Закрыть' : 'Категория'}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              setShowForm((v) => !v);
-            }}
-            className="flex items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-black hover:bg-[var(--color-accent-hover)]"
-          >
-            <Plus size={16} />
-            {showForm ? 'Закрыть форму' : 'Новый товар'}
-          </button>
+          {!isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setShowForm((v) => !v);
+              }}
+              className="btn-gradient flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium text-black"
+            >
+              <Plus size={16} />
+              {showForm ? 'Закрыть форму' : 'Новый товар'}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Category form (admin) */}
+      {isAdmin && <AdminRoles />}
+
       {isAdmin && showCategoryForm && (
         <form
           onSubmit={handleCreateCategory}
@@ -271,7 +279,7 @@ export function SellerPanel({
           <button
             type="submit"
             disabled={catSubmitting}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[var(--color-accent)] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[var(--color-accent-hover)] disabled:opacity-60"
+            className="btn-gradient flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-black disabled:opacity-60"
           >
             {catSubmitting && <Loader2 size={16} className="animate-spin" />}
             Создать категорию
@@ -279,8 +287,7 @@ export function SellerPanel({
         </form>
       )}
 
-      {/* Create product form */}
-      {showForm && (
+      {!isAdmin && showForm && (
         <form
           onSubmit={handleCreate}
           className="mb-8 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4"
@@ -372,7 +379,7 @@ export function SellerPanel({
           <button
             type="submit"
             disabled={submitting}
-            className="flex items-center justify-center gap-2 rounded-xl bg-[var(--color-accent)] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[var(--color-accent-hover)] disabled:opacity-60"
+            className="btn-gradient flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-black disabled:opacity-60"
           >
             {submitting && <Loader2 size={16} className="animate-spin" />}
             Создать
@@ -397,9 +404,11 @@ export function SellerPanel({
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <PackageOpen size={40} className="mb-3 text-[var(--color-text-muted)]" />
             <p className="font-medium">Товаров пока нет</p>
-            <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-              Создайте первый товар
-            </p>
+            {!isAdmin && (
+              <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                Создайте первый товар
+              </p>
+            )}
           </div>
         )}
 

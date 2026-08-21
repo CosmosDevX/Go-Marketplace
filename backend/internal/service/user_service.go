@@ -48,7 +48,7 @@ func (s UserService) Create(ctx context.Context, input CreateUserInput) (int, er
 			return nil, err
 		}
 
-		if err := repos.UserRoleRepository.Create(ctx, id, config.DefaultUserRole); err != nil {
+		if err := repos.UserRoleRepository.Create(ctx, input.Username, config.DefaultUserRole); err != nil {
 			return 0, err
 		}
 

@@ -1,30 +1,43 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Store, LogIn, UserPlus, LogOut, User, ShoppingCart, LayoutDashboard } from 'lucide-react';
+import {
+  Store,
+  LogIn,
+  UserPlus,
+  LogOut,
+  User,
+  ShoppingCart,
+  LayoutDashboard,
+  Shield,
+} from 'lucide-react';
 import type { UserInfo } from '../types';
 
 interface Props {
   user: UserInfo | null;
   cartCount: number;
   canAccessSellerPanel: boolean;
+  canAccessAdminPanel: boolean;
   onLogoClick: () => void;
   onLoginClick: () => void;
   onRegisterClick: () => void;
   onLogout: () => void;
   onCartClick: () => void;
   onSellerClick: () => void;
+  onAdminClick: () => void;
 }
 
 export function Header({
   user,
   cartCount,
   canAccessSellerPanel,
+  canAccessAdminPanel,
   onLogoClick,
   onLoginClick,
   onRegisterClick,
   onLogout,
   onCartClick,
   onSellerClick,
+  onAdminClick,
 }: Props) {
   const [logoFailed, setLogoFailed] = useState(false);
 
@@ -57,6 +70,19 @@ export function Header({
         </motion.button>
 
         <div className="flex items-center gap-2">
+          {canAccessAdminPanel && (
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={onAdminClick}
+              className="flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm text-[var(--color-text)] transition-colors hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-hover)]"
+            >
+              <Shield size={16} />
+              <span className="hidden sm:inline">Админ-панель</span>
+            </motion.button>
+          )}
+
           {canAccessSellerPanel && (
             <motion.button
               type="button"

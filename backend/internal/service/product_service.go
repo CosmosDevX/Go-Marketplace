@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"mime/multipart"
-	"myapp/internal/config"
 	"myapp/internal/domain"
 
 	"github.com/shopspring/decimal"
@@ -30,8 +29,8 @@ type ProductRepository interface {
 }
 
 type FileManager interface {
-	SaveFile(file multipart.File, header *multipart.FileHeader, saveDirectory string) (string, error)
-	DeleteFile(path, filename string) error
+	SaveFile(file multipart.File, header *multipart.FileHeader) (string, error)
+	DeleteFile(filename string) error
 }
 
 type CategoryIDGetter interface {
@@ -39,15 +38,13 @@ type CategoryIDGetter interface {
 }
 
 type ProductService struct {
-	unitOfWork        UnitOfWork
 	productRepository ProductRepository
 	categoryIDGetter  CategoryIDGetter
 	fileManager       FileManager
 }
 
-func NewProductService(unitOfWork UnitOfWork, productRepository ProductRepository, categoryIDGetter CategoryIDGetter, fileManager FileManager) ProductService {
+func NewProductService(productRepository ProductRepository, categoryIDGetter CategoryIDGetter, fileManager FileManager) ProductService {
 	return ProductService{
-		unitOfWork:        unitOfWork,
 		productRepository: productRepository,
 		categoryIDGetter:  categoryIDGetter,
 		fileManager:       fileManager,
@@ -60,14 +57,14 @@ func (s ProductService) Create(ctx context.Context, input CreateProductInput) (i
 		return 0, err
 	}
 
-	filename, err := s.fileManager.SaveFile(input.File, input.Header, "uploads")
+	filename, err := s.fileManager.SaveFile(input.File, input.Header)
 	if err != nil {
 		return 0, err
 	}
 
 	product, err := domain.NewProduct(input.Name, input.Description, filename, input.Price, categoryID, input.SellerID)
 	if err != nil {
-		if err := s.fileManager.DeleteFile(config.UploadsPath, filename); err != nil {
+		if err := s.fileManager.DeleteFile(filename); err != nil {
 			return 0, err
 		}
 		return 0, err
@@ -75,6 +72,9 @@ func (s ProductService) Create(ctx context.Context, input CreateProductInput) (i
 
 	productID, err := s.productRepository.Create(ctx, product)
 	if err != nil {
+		if err := s.fileManager.DeleteFile(filename); err != nil {
+			return 0, err
+		}
 		return 0, err
 	}
 
@@ -124,7 +124,7 @@ func (s ProductService) Delete(ctx context.Context, productID, sellerID int) err
 		return err
 	}
 
-	if err := s.fileManager.DeleteFile(config.UploadsPath, filename); err != nil {
+	if err := s.fileManager.DeleteFile(filename); err != nil {
 		return err
 	}
 

@@ -117,14 +117,20 @@ export function useAuth() {
   }, []);
 
   const roles = user?.roles ?? [];
-  const canAccessSellerPanel =
-    roles.includes('seller') || roles.includes('admin');
+  const isAdmin = roles.includes('admin');
+  const isSeller = roles.includes('seller');
+  // admin → только админ-панель; seller без admin → панель продавца
+  const canAccessSellerPanel = isSeller && !isAdmin;
+  const canAccessAdminPanel = isAdmin;
 
   return {
     token,
     user,
     isAuthenticated: !!token,
+    isAdmin,
+    isSeller,
     canAccessSellerPanel,
+    canAccessAdminPanel,
     ready,
     login,
     logout,
