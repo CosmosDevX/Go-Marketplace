@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log"
 	"mime/multipart"
 	"myapp/internal/config"
 	"myapp/internal/domain"
@@ -74,7 +75,7 @@ func (s ProductService) Create(ctx context.Context, input CreateProductInput) (i
 	productID, err := s.productRepository.Create(ctx, product)
 	if err != nil {
 		if err := s.fileManager.DeleteFile(filename); err != nil {
-			return 0, err
+			log.Println(err)
 		}
 		return 0, err
 	}
@@ -120,6 +121,9 @@ func (s ProductService) Delete(ctx context.Context, productID, sellerID int, rol
 	}
 
 	if err := s.productRepository.Delete(ctx, productID, sellerID, isAdmin); err != nil {
+		if err := s.fileManager.DeleteFile(filename); err != nil {
+			log.Println(err)
+		}
 		return err
 	}
 

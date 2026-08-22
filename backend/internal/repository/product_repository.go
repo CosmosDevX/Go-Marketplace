@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"myapp/internal/config"
 	"myapp/internal/domain"
 
@@ -107,7 +106,6 @@ func (r ProductRepository) buildWhere(search, categorySlug string) string {
 		where += fmt.Sprintf(" AND p.product_name LIKE '%%%s%%'", search)
 	}
 
-	log.Printf("Search: %s, CategorySlug: %s where: %s", search, categorySlug, where)
 	return where
 }
 

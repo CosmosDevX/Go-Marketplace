@@ -35,11 +35,7 @@ func NewUserRoleService(userRoleRepository UserRoleRepository, usernameGetter Us
 }
 
 func (s UserRoleService) Create(ctx context.Context, input UserRoleInput) error {
-	if err := s.userRoleRepository.Create(ctx, input.Username, input.Role); err != nil {
-		return err
-	}
-
-	return nil
+	return s.userRoleRepository.Create(ctx, input.Username, input.Role)
 }
 
 func (s UserRoleService) Delete(ctx context.Context, input UserRoleInput, currentUserID int) error {

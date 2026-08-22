@@ -47,7 +47,7 @@ func (r UserRoleRepository) Create(ctx context.Context, username, roleName strin
 	}
 
 	if affectedRows, _ := sqlResult.RowsAffected(); affectedRows == 0 {
-		return fmt.Errorf("role %s: %w", roleName, domain.ErrNotFound)
+		return fmt.Errorf("role %s, user: %s: %w", roleName, username, domain.ErrNotFound)
 	}
 
 	return nil
