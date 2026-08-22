@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"mime/multipart"
+	"myapp/internal/config"
 	"myapp/internal/domain"
+	"slices"
 
 	"github.com/shopspring/decimal"
 )
@@ -21,11 +23,10 @@ type CreateProductInput struct {
 
 type ProductRepository interface {
 	ListBySellerID(ctx context.Context, sellerID, page int) ([]domain.Product, error)
-	ListByCategorySlug(ctx context.Context, categorySlug string, page int) ([]domain.Product, error)
-	List(ctx context.Context, page int) ([]domain.Product, error)
+	List(ctx context.Context, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error)
 	Create(ctx context.Context, p domain.Product) (int, error)
-	GetImageByID(ctx context.Context, productID, sellerID int) (string, error)
-	Delete(ctx context.Context, productID, sellerID int) error
+	GetImageByID(ctx context.Context, productID, sellerID int, isAdmin bool) (string, error)
+	Delete(ctx context.Context, productID, sellerID int, isAdmin bool) error
 }
 
 type FileManager interface {
@@ -81,19 +82,12 @@ func (s ProductService) Create(ctx context.Context, input CreateProductInput) (i
 	return productID, nil
 }
 
-func (s ProductService) List(ctx context.Context, categorySlug string, page int) ([]domain.Product, error) {
+func (s ProductService) List(ctx context.Context, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error) {
 	if page <= 0 {
-		return nil, fmt.Errorf("get products by category slug: %w", domain.ErrValidation)
+		return nil, fmt.Errorf("list products: %w", domain.ErrValidation)
 	}
 
-	var products []domain.Product
-	var err error
-	if categorySlug == "" {
-		products, err = s.productRepository.List(ctx, page)
-	} else {
-		products, err = s.productRepository.ListByCategorySlug(ctx, categorySlug, page)
-	}
-
+	products, err := s.productRepository.List(ctx, categorySlug, sortBy, asc, page)
 	if err != nil {
 		return []domain.Product{}, err
 	}
@@ -114,13 +108,18 @@ func (s ProductService) ListBySellerID(ctx context.Context, sellerID, page int) 
 	return products, nil
 }
 
-func (s ProductService) Delete(ctx context.Context, productID, sellerID int) error {
-	filename, err := s.productRepository.GetImageByID(ctx, productID, sellerID)
+func (s ProductService) Delete(ctx context.Context, productID, sellerID int, roles []string) error {
+	isAdmin := false
+	if slices.Contains(roles, config.AdminRole) {
+		isAdmin = true
+	}
+
+	filename, err := s.productRepository.GetImageByID(ctx, productID, sellerID, isAdmin)
 	if err != nil {
 		return err
 	}
 
-	if err := s.productRepository.Delete(ctx, productID, sellerID); err != nil {
+	if err := s.productRepository.Delete(ctx, productID, sellerID, isAdmin); err != nil {
 		return err
 	}
 

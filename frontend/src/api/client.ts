@@ -66,10 +66,21 @@ export const api = {
       true
     ),
 
-  getProducts: (params: { page?: number; category?: string } = {}) => {
+  getProducts: (
+    params: {
+      page?: number;
+      category?: string;
+      sortBy?: 'price' | 'name';
+      asc?: boolean;
+    } = {}
+  ) => {
     const search = new URLSearchParams();
     if (params.page) search.set('page', String(params.page));
     if (params.category) search.set('category', params.category);
+    if (params.sortBy) {
+      search.set('sortBy', params.sortBy);
+      search.set('asc', String(params.asc ?? true));
+    }
     const query = search.toString();
     return request<import('../types').ProductsResponse>(
       `/products${query ? `?${query}` : ''}`

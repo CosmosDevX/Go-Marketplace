@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, PackageOpen, RefreshCw, Loader2 } from 'lucide-react';
 import { Header } from './components/Header';
-import { CategoryChips } from './components/CategoryChips';
+import { FiltersSidebar, type SortBy } from './components/FiltersSidebar';
 import { ProductCard } from './components/ProductCard';
 import { Pagination } from './components/Pagination';
 import { AuthModal } from './components/AuthModal';
@@ -23,6 +23,8 @@ function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortBy>(null);
+  const [sortAsc, setSortAsc] = useState(true);
 
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(false);
@@ -78,6 +80,8 @@ function App() {
       const data = await api.getProducts({
         page,
         category: activeCategory || undefined,
+        sortBy: sortBy || undefined,
+        asc: sortBy ? sortAsc : undefined,
       });
       if (requestId.current !== id) return;
       setProducts(Array.isArray(data?.products) ? data.products : []);
@@ -92,7 +96,7 @@ function App() {
         setShowLoader(false);
       }
     }
-  }, [page, activeCategory]);
+  }, [page, activeCategory, sortBy, sortAsc]);
 
   useEffect(() => {
     if (view !== 'catalog') return;
@@ -104,6 +108,19 @@ function App() {
 
   const handleCategorySelect = (slug: string | null) => {
     setActiveCategory(slug);
+    setPage(1);
+  };
+
+  const handleSortChange = (next: SortBy, asc: boolean) => {
+    setSortBy(next);
+    setSortAsc(asc);
+    setPage(1);
+  };
+
+  const handleFiltersReset = () => {
+    setActiveCategory(null);
+    setSortBy(null);
+    setSortAsc(true);
     setPage(1);
   };
 
@@ -151,19 +168,23 @@ function App() {
               Каталог товаров
             </h1>
             <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-              Выберите категорию или смотрите все товары
+              Фильтры слева · сортировка по цене и названию
             </p>
           </div>
 
-          <div className="mb-8">
-            <CategoryChips
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+            <FiltersSidebar
               categories={categories}
-              activeSlug={activeCategory}
-              onSelect={handleCategorySelect}
-              loading={categoriesLoading}
+              categoriesLoading={categoriesLoading}
+              activeCategory={activeCategory}
+              sortBy={sortBy}
+              asc={sortAsc}
+              onCategoryChange={handleCategorySelect}
+              onSortChange={handleSortChange}
+              onReset={handleFiltersReset}
             />
-          </div>
 
+            <div className="min-w-0 flex-1">
           {error && (
             <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
               <AlertCircle size={18} className="mt-0.5 shrink-0" />
@@ -230,6 +251,8 @@ function App() {
             onNext={() => setPage((p) => p + 1)}
             loading={productsLoading}
           />
+            </div>
+          </div>
         </main>
       )}
 

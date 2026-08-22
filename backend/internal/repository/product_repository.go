@@ -49,16 +49,22 @@ func NewProductRepository(db DBTX) ProductRepository {
 	}
 }
 
-func (r ProductRepository) List(ctx context.Context, page int) ([]domain.Product, error) {
-	query := `
+func (r ProductRepository) List(ctx context.Context, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error) {
+	baseQuery := `
 		SELECT 
 			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image, p.product_seller_id,
 			c.category_id, c.category_name, c.category_slug
 		FROM products AS p
 		JOIN categories AS c ON p.product_category_id = c.category_id
+		WHERE %s
+		ORDER BY %s
 		LIMIT $1 OFFSET $2
 	`
 	offset := config.ProductPageSize * (page - 1)
+
+	orderBy := r.buildOrderBy(sortBy, asc)
+	where := r.buildWhere(categorySlug)
+	query := fmt.Sprintf(baseQuery, where, orderBy)
 
 	var productRows []productRow
 	err := r.db.SelectContext(ctx, &productRows, query, config.ProductPageSize, offset)
@@ -73,28 +79,31 @@ func (r ProductRepository) List(ctx context.Context, page int) ([]domain.Product
 	return r.toDomainModels(productRows), nil
 }
 
-func (r ProductRepository) ListByCategorySlug(ctx context.Context, categorySlug string, page int) ([]domain.Product, error) {
-	query := `
-		SELECT 
-			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image, p.product_seller_id,
-			c.category_id, c.category_name, c.category_slug
-		FROM products AS p
-		JOIN categories AS c ON p.product_category_id = c.category_id
-		WHERE c.category_slug = $1
-		LIMIT $2 OFFSET $3
-	`
-	offset := config.ProductPageSize * (page - 1)
-	var productRows []productRow
-	err := r.db.SelectContext(ctx, &productRows, query, categorySlug, config.ProductPageSize, offset)
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("get products by category slug %s: %w", categorySlug, domain.ErrTimeout)
-		}
-
-		return nil, fmt.Errorf("get products by category slug %s: %w", categorySlug, err)
+func (r ProductRepository) buildOrderBy(sortBy string, asc bool) string {
+	dir := "DESC"
+	if asc {
+		dir = "ASC"
 	}
 
-	return r.toDomainModels(productRows), nil
+	switch sortBy {
+	case "price":
+		return fmt.Sprintf("p.product_price %s, p.product_id ASC", dir)
+	case "name":
+		return fmt.Sprintf("p.product_name %s, p.product_id ASC", dir)
+	default:
+		return "p.product_name ASC, p.product_id ASC"
+	}
+}
+
+func (r ProductRepository) buildWhere(categorySlug string) string {
+	var where string
+	if categorySlug == "" {
+		where = "1 = 1"
+	} else {
+		where = fmt.Sprintf("c.category_slug = '%s'", categorySlug)
+	}
+
+	return where
 }
 
 func (r ProductRepository) ListBySellerID(ctx context.Context, sellerID, page int) ([]domain.Product, error) {
@@ -139,9 +148,18 @@ func (r ProductRepository) Create(ctx context.Context, p domain.Product) (int, e
 	return productID, nil
 }
 
-func (r ProductRepository) Delete(ctx context.Context, productID, sellerID int) error {
-	query := `DELETE FROM products WHERE product_id = $1 AND product_seller_id = $2`
-	sqlResult, err := r.db.ExecContext(ctx, query, productID, sellerID)
+func (r ProductRepository) Delete(ctx context.Context, productID, sellerID int, isAdmin bool) error {
+	var query string
+	var args []any
+	if isAdmin {
+		query = `DELETE FROM products WHERE product_id = $1`
+		args = []any{productID}
+	} else {
+		query = `DELETE FROM products WHERE product_id = $1 AND product_seller_id = $2`
+		args = []any{productID, sellerID}
+	}
+
+	sqlResult, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("delete product by id %d: %w", productID, domain.ErrTimeout)
@@ -157,10 +175,19 @@ func (r ProductRepository) Delete(ctx context.Context, productID, sellerID int) 
 	return nil
 }
 
-func (r ProductRepository) GetImageByID(ctx context.Context, productID, sellerID int) (string, error) {
-	query := `SELECT product_image FROM products WHERE product_id = $1 AND product_seller_id = $2`
+func (r ProductRepository) GetImageByID(ctx context.Context, productID, sellerID int, isAdmin bool) (string, error) {
+	var query string
+	var args []any
+	if isAdmin {
+		query = `SELECT product_image FROM products WHERE product_id = $1`
+		args = []any{productID}
+	} else {
+		query = `SELECT product_image FROM products WHERE product_id = $1 AND product_seller_id = $2`
+		args = []any{productID, sellerID}
+	}
+
 	var image string
-	if err := r.db.GetContext(ctx, &image, query, productID, sellerID); err != nil {
+	if err := r.db.GetContext(ctx, &image, query, args...); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return "", fmt.Errorf("get image by productID %d: %w", productID, domain.ErrTimeout)
 		}

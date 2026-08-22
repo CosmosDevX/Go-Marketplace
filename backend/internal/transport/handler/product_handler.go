@@ -20,8 +20,8 @@ import (
 type ProductService interface {
 	Create(ctx context.Context, input service.CreateProductInput) (int, error)
 	ListBySellerID(ctx context.Context, sellerID, page int) ([]domain.Product, error)
-	List(ctx context.Context, categorySlug string, page int) ([]domain.Product, error)
-	Delete(ctx context.Context, productID, sellerID int) error
+	List(ctx context.Context, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error)
+	Delete(ctx context.Context, productID, sellerID int, roles []string) error
 }
 
 type ProductHandler struct {
@@ -106,13 +106,19 @@ func (h ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	categorySlug := r.URL.Query().Get("category")
+	sortBy := r.URL.Query().Get("sortBy")
+	asc, err := strconv.ParseBool(r.URL.Query().Get("asc"))
+	if err != nil {
+		asc = false
+	}
+
 	page, parseErr := strconv.Atoi(r.URL.Query().Get("page"))
 	if parseErr != nil {
 		utils.WriteError(w, fmt.Errorf("page parse: %w", domain.ErrParse))
 		return
 	}
 
-	products, err := h.productService.List(ctx, categorySlug, page)
+	products, err := h.productService.List(ctx, categorySlug, sortBy, asc, page)
 	if err != nil {
 		utils.WriteError(w, err)
 		return
@@ -178,7 +184,7 @@ func (h ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.productService.Delete(ctx, productID, user.UserID); err != nil {
+	if err := h.productService.Delete(ctx, productID, user.UserID, user.Roles); err != nil {
 		utils.WriteError(w, err)
 		return
 	}
