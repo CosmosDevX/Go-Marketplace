@@ -23,7 +23,7 @@ type CreateProductInput struct {
 
 type ProductRepository interface {
 	ListBySellerID(ctx context.Context, sellerID, page int) ([]domain.Product, error)
-	List(ctx context.Context, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error)
+	List(ctx context.Context, search, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error)
 	Create(ctx context.Context, p domain.Product) (int, error)
 	GetImageByID(ctx context.Context, productID, sellerID int, isAdmin bool) (string, error)
 	Delete(ctx context.Context, productID, sellerID int, isAdmin bool) error
@@ -82,12 +82,12 @@ func (s ProductService) Create(ctx context.Context, input CreateProductInput) (i
 	return productID, nil
 }
 
-func (s ProductService) List(ctx context.Context, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error) {
+func (s ProductService) List(ctx context.Context, search, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error) {
 	if page <= 0 {
 		return nil, fmt.Errorf("list products: %w", domain.ErrValidation)
 	}
 
-	products, err := s.productRepository.List(ctx, categorySlug, sortBy, asc, page)
+	products, err := s.productRepository.List(ctx, search, categorySlug, sortBy, asc, page)
 	if err != nil {
 		return []domain.Product{}, err
 	}

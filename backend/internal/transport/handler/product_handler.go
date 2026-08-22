@@ -20,7 +20,7 @@ import (
 type ProductService interface {
 	Create(ctx context.Context, input service.CreateProductInput) (int, error)
 	ListBySellerID(ctx context.Context, sellerID, page int) ([]domain.Product, error)
-	List(ctx context.Context, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error)
+	List(ctx context.Context, search, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error)
 	Delete(ctx context.Context, productID, sellerID int, roles []string) error
 }
 
@@ -107,6 +107,7 @@ func (h ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	categorySlug := r.URL.Query().Get("category")
 	sortBy := r.URL.Query().Get("sortBy")
+	search := r.URL.Query().Get("search")
 	asc, err := strconv.ParseBool(r.URL.Query().Get("asc"))
 	if err != nil {
 		asc = false
@@ -118,7 +119,7 @@ func (h ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	products, err := h.productService.List(ctx, categorySlug, sortBy, asc, page)
+	products, err := h.productService.List(ctx, search, categorySlug, sortBy, asc, page)
 	if err != nil {
 		utils.WriteError(w, err)
 		return

@@ -70,7 +70,6 @@ export function SellerPanel({
     }, 250);
 
     try {
-      // admin — все товары каталога; seller — только свои
       const data = isAdmin
         ? await api.getProducts({ page })
         : await api.getSellerProducts(page);

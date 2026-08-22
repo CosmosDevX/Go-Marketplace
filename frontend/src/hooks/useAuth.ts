@@ -22,7 +22,9 @@ function readStoredUser(): UserInfo | null {
   const saved = localStorage.getItem(USER_KEY);
   if (!saved) return null;
   try {
-    return JSON.parse(saved);
+    const u = JSON.parse(saved);
+    // drop legacy user_id if present
+    return { username: u.username, roles: u.roles ?? [] };
   } catch {
     return null;
   }
@@ -42,7 +44,6 @@ export function useAuth() {
       const storedToken = localStorage.getItem(TOKEN_KEY);
       const storedUser = readStoredUser();
 
-      // Сразу восстанавливаем сессию из localStorage — без ожидания refresh
       if (storedToken) {
         if (!cancelled) {
           setToken(storedToken);
@@ -57,7 +58,6 @@ export function useAuth() {
         return;
       }
 
-      // Пытаемся обновить токен (cookies через credentials: 'include')
       try {
         const res = await api.refresh();
         if (cancelled) return;
@@ -78,8 +78,7 @@ export function useAuth() {
           setUser(u);
         }
       } catch {
-        // Refresh не удался — НЕ разлогиниваем.
-        // Оставляем access_token из localStorage, пока бэкенд сам не ответит 401 на защищённых запросах.
+        // keep local session
       } finally {
         if (!cancelled) setReady(true);
       }
@@ -119,7 +118,6 @@ export function useAuth() {
   const roles = user?.roles ?? [];
   const isAdmin = roles.includes('admin');
   const isSeller = roles.includes('seller');
-  // admin → только админ-панель; seller без admin → панель продавца
   const canAccessSellerPanel = isSeller && !isAdmin;
   const canAccessAdminPanel = isAdmin;
 

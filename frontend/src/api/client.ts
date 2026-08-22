@@ -72,6 +72,7 @@ export const api = {
       category?: string;
       sortBy?: 'price' | 'name';
       asc?: boolean;
+      search?: string;
     } = {}
   ) => {
     const search = new URLSearchParams();
@@ -81,6 +82,7 @@ export const api = {
       search.set('sortBy', params.sortBy);
       search.set('asc', String(params.asc ?? true));
     }
+    if (params.search?.trim()) search.set('search', params.search.trim());
     const query = search.toString();
     return request<import('../types').ProductsResponse>(
       `/products${query ? `?${query}` : ''}`

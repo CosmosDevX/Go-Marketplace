@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowDownAZ,
@@ -6,11 +6,11 @@ import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
   RotateCcw,
+  Search,
 } from 'lucide-react';
 import type { Category } from '../types';
 
 export type SortBy = 'price' | 'name' | null;
-export type SortAsc = boolean;
 
 interface Props {
   categories: Category[];
@@ -18,6 +18,9 @@ interface Props {
   activeCategory: string | null;
   sortBy: SortBy;
   asc: boolean;
+  searchInput: string;
+  onSearchInputChange: (value: string) => void;
+  onSearchSubmit: (value: string) => void;
   onCategoryChange: (slug: string | null) => void;
   onSortChange: (sortBy: SortBy, asc: boolean) => void;
   onReset: () => void;
@@ -29,6 +32,9 @@ export function FiltersSidebar({
   activeCategory,
   sortBy,
   asc,
+  searchInput,
+  onSearchInputChange,
+  onSearchSubmit,
   onCategoryChange,
   onSortChange,
   onReset,
@@ -37,6 +43,11 @@ export function FiltersSidebar({
   const isPriceDesc = sortBy === 'price' && !asc;
   const isNameAsc = sortBy === 'name' && asc;
   const isNameDesc = sortBy === 'name' && !asc;
+
+  const handleSearch = (e: FormEvent) => {
+    e.preventDefault();
+    onSearchSubmit(searchInput);
+  };
 
   return (
     <aside className="w-full shrink-0 lg:w-64">
@@ -55,6 +66,27 @@ export function FiltersSidebar({
             Сброс
           </button>
         </div>
+
+        {/* Search */}
+        <form onSubmit={handleSearch} className="mb-6">
+          <p className="mb-2 text-sm font-medium">Поиск</p>
+          <div className="flex gap-1.5">
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => onSearchInputChange(e.target.value)}
+              placeholder="Название..."
+              className="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+            />
+            <button
+              type="submit"
+              className="btn-gradient flex items-center justify-center rounded-xl px-3 text-black"
+              title="Искать"
+            >
+              <Search size={16} />
+            </button>
+          </div>
+        </form>
 
         <div className="mb-6">
           <p className="mb-2 text-sm font-medium">Категория</p>
@@ -89,17 +121,13 @@ export function FiltersSidebar({
               label="По возрастанию"
               icon={<ArrowUpNarrowWide size={14} />}
               active={isPriceAsc}
-              onClick={() =>
-                onSortChange(isPriceAsc ? null : 'price', true)
-              }
+              onClick={() => onSortChange(isPriceAsc ? null : 'price', true)}
             />
             <FilterRow
               label="По убыванию"
               icon={<ArrowDownWideNarrow size={14} />}
               active={isPriceDesc}
-              onClick={() =>
-                onSortChange(isPriceDesc ? null : 'price', false)
-              }
+              onClick={() => onSortChange(isPriceDesc ? null : 'price', false)}
             />
           </div>
         </div>
@@ -111,17 +139,13 @@ export function FiltersSidebar({
               label="А → Я"
               icon={<ArrowDownAZ size={14} />}
               active={isNameAsc}
-              onClick={() =>
-                onSortChange(isNameAsc ? null : 'name', true)
-              }
+              onClick={() => onSortChange(isNameAsc ? null : 'name', true)}
             />
             <FilterRow
               label="Я → А"
               icon={<ArrowUpAZ size={14} />}
               active={isNameDesc}
-              onClick={() =>
-                onSortChange(isNameDesc ? null : 'name', false)
-              }
+              onClick={() => onSortChange(isNameDesc ? null : 'name', false)}
             />
           </div>
         </div>

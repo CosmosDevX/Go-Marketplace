@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"myapp/internal/config"
 	"myapp/internal/domain"
 
@@ -49,7 +50,7 @@ func NewProductRepository(db DBTX) ProductRepository {
 	}
 }
 
-func (r ProductRepository) List(ctx context.Context, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error) {
+func (r ProductRepository) List(ctx context.Context, search, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error) {
 	baseQuery := `
 		SELECT 
 			p.product_id, p.product_name, p.product_description, p.product_price, p.product_image, p.product_seller_id,
@@ -59,11 +60,11 @@ func (r ProductRepository) List(ctx context.Context, categorySlug, sortBy string
 		WHERE %s
 		ORDER BY %s
 		LIMIT $1 OFFSET $2
-	`
+	` //TODO: sql injection in where!
 	offset := config.ProductPageSize * (page - 1)
 
 	orderBy := r.buildOrderBy(sortBy, asc)
-	where := r.buildWhere(categorySlug)
+	where := r.buildWhere(search, categorySlug)
 	query := fmt.Sprintf(baseQuery, where, orderBy)
 
 	var productRows []productRow
@@ -95,14 +96,18 @@ func (r ProductRepository) buildOrderBy(sortBy string, asc bool) string {
 	}
 }
 
-func (r ProductRepository) buildWhere(categorySlug string) string {
+func (r ProductRepository) buildWhere(search, categorySlug string) string {
 	var where string
 	if categorySlug == "" {
 		where = "1 = 1"
 	} else {
 		where = fmt.Sprintf("c.category_slug = '%s'", categorySlug)
 	}
+	if search != "" {
+		where += fmt.Sprintf(" AND p.product_name LIKE '%%%s%%'", search)
+	}
 
+	log.Printf("Search: %s, CategorySlug: %s where: %s", search, categorySlug, where)
 	return where
 }
 

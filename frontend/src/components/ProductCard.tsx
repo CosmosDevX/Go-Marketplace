@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingCart, ImageOff, Loader2, Check } from 'lucide-react';
+import { ShoppingCart, ImageOff, Loader2, Plus, Minus } from 'lucide-react';
 import type { Product } from '../types';
 import { formatPrice } from '../utils/emoji';
 import { resolveImageUrl } from '../utils/image';
@@ -9,7 +9,11 @@ import { IMAGE_CONFIG } from '../config/images';
 
 interface Props {
   product: Product;
+  /** Если товар уже в корзине */
+  cartItemId?: number | null;
+  quantity?: number;
   onAddToCart: (productId: number) => Promise<void>;
+  onChangeQuantity: (cartItemId: number, delta: 1 | -1) => Promise<void>;
   requireAuth: () => void;
   isAuthenticated: boolean;
   index?: number;
@@ -17,32 +21,47 @@ interface Props {
 
 export function ProductCard({
   product,
+  cartItemId,
+  quantity = 0,
   onAddToCart,
+  onChangeQuantity,
   requireAuth,
   isAuthenticated,
   index = 0,
 }: Props) {
   const src = resolveImageUrl(product.product_image);
   const [failed, setFailed] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const inCart = cartItemId != null && quantity > 0;
 
   const handleAdd = async () => {
     if (!isAuthenticated) {
       requireAuth();
       return;
     }
-    setAdding(true);
+    setBusy(true);
     setError(null);
     try {
       await onAddToCart(product.product_id);
-      setAdded(true);
-      setTimeout(() => setAdded(false), 1500);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Не удалось добавить');
     } finally {
-      setAdding(false);
+      setBusy(false);
+    }
+  };
+
+  const handleDelta = async (delta: 1 | -1) => {
+    if (cartItemId == null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onChangeQuantity(cartItemId, delta);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Ошибка обновления');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -80,8 +99,8 @@ export function ProductCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <h3 className="line-clamp-2 text-sm sm:text-base font-medium leading-snug text-[var(--color-text)]">
+      <div className="flex flex-1 flex-col gap-1.5 p-3 sm:p-4">
+        <h3 className="line-clamp-2 text-sm font-medium leading-snug text-[var(--color-text)]">
           {product.product_name}
         </h3>
 
@@ -91,30 +110,56 @@ export function ProductCard({
 
         {error && <p className="text-xs text-red-300">{error}</p>}
 
-        <div className="mt-auto flex items-center justify-between gap-2 pt-3">
-          <span className="text-lg font-semibold text-gradient">
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+          <span className="min-w-0 truncate text-base sm:text-lg font-semibold text-gradient">
             {formatPrice(product.product_price)}
           </span>
 
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            disabled={adding}
-            onClick={handleAdd}
-            className="btn-gradient flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-black disabled:opacity-60"
-          >
-            {adding ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : added ? (
-              <Check size={16} strokeWidth={2.5} />
-            ) : (
-              <ShoppingCart size={16} strokeWidth={2.5} />
-            )}
-            <span className="hidden sm:inline">
-              {added ? 'Добавлено' : 'В корзину'}
-            </span>
-          </motion.button>
+          {inCart ? (
+            <div className="flex shrink-0 items-center gap-0.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)]">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => handleDelta(-1)}
+                className="rounded-l-xl p-2 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)] disabled:opacity-40"
+                aria-label="Уменьшить"
+              >
+                <Minus size={14} />
+              </button>
+              <span className="min-w-[1.5rem] text-center text-sm font-semibold tabular-nums">
+                {busy ? (
+                  <Loader2 size={14} className="mx-auto animate-spin" />
+                ) : (
+                  quantity
+                )}
+              </span>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => handleDelta(1)}
+                className="rounded-r-xl p-2 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)] disabled:opacity-40"
+                aria-label="Увеличить"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+          ) : (
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              disabled={busy}
+              onClick={handleAdd}
+              title="В корзину"
+              className="btn-gradient flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-black disabled:opacity-60"
+            >
+              {busy ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <ShoppingCart size={16} strokeWidth={2.5} />
+              )}
+            </motion.button>
+          )}
         </div>
       </div>
     </motion.article>

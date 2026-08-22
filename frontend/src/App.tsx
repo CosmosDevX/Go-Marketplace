@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, PackageOpen, RefreshCw, Loader2 } from 'lucide-react';
 import { Header } from './components/Header';
 import { FiltersSidebar, type SortBy } from './components/FiltersSidebar';
@@ -24,6 +24,8 @@ function App() {
   const [page, setPage] = useState(1);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>(null);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [sortAsc, setSortAsc] = useState(true);
 
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -82,6 +84,7 @@ function App() {
         category: activeCategory || undefined,
         sortBy: sortBy || undefined,
         asc: sortBy ? sortAsc : undefined,
+        search: search || undefined,
       });
       if (requestId.current !== id) return;
       setProducts(Array.isArray(data?.products) ? data.products : []);
@@ -96,7 +99,7 @@ function App() {
         setShowLoader(false);
       }
     }
-  }, [page, activeCategory, sortBy, sortAsc]);
+  }, [page, activeCategory, sortBy, sortAsc, search]);
 
   useEffect(() => {
     if (view !== 'catalog') return;
@@ -121,6 +124,13 @@ function App() {
     setActiveCategory(null);
     setSortBy(null);
     setSortAsc(true);
+    setSearch('');
+    setSearchInput('');
+    setPage(1);
+  };
+
+  const handleSearchSubmit = (value: string) => {
+    setSearch(value.trim());
     setPage(1);
   };
 
@@ -133,6 +143,17 @@ function App() {
   };
 
   const hasProducts = products.length > 0;
+
+  const cartByProduct = useMemo(() => {
+    const map = new Map<number, { cartItemId: number; quantity: number }>();
+    for (const item of cart.items) {
+      map.set(item.product.product_id, {
+        cartItemId: item.cart_item_id,
+        quantity: item.quantity,
+      });
+    }
+    return map;
+  }, [cart.items]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -179,6 +200,9 @@ function App() {
               activeCategory={activeCategory}
               sortBy={sortBy}
               asc={sortAsc}
+              searchInput={searchInput}
+              onSearchInputChange={setSearchInput}
+              onSearchSubmit={handleSearchSubmit}
               onCategoryChange={handleCategorySelect}
               onSortChange={handleSortChange}
               onReset={handleFiltersReset}
@@ -235,9 +259,12 @@ function App() {
                     key={product.product_id}
                     product={product}
                     index={index}
+                    cartItemId={cartByProduct.get(product.product_id)?.cartItemId}
+                    quantity={cartByProduct.get(product.product_id)?.quantity ?? 0}
                     isAuthenticated={auth.isAuthenticated}
                     requireAuth={() => setAuthModal('login')}
                     onAddToCart={cart.addItem}
+                    onChangeQuantity={cart.changeQuantity}
                   />
                 ))}
               </div>
