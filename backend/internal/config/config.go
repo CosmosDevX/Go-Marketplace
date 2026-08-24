@@ -39,4 +39,7 @@ func (c *Config) Load() {
 	c.RedisClientPassword = os.Getenv("REDIS_CLIENT_PASSWORD")
 	c.CORSAllowedHost = os.Getenv("CORS_ALLOWED_HOST")
 	c.UploadsDir = os.Getenv("UPLOADS_DIR")
+	if c.UploadsDir == "" {
+		log.Fatal("uploads dir is empty!")
+	}
 }

@@ -26,9 +26,6 @@ type FileManager struct {
 }
 
 func NewFileManager(uploadsDir string) FileManager {
-	if uploadsDir == "" {
-		uploadsDir = "./uploads"
-	}
 	return FileManager{UploadsDir: uploadsDir}
 }
 

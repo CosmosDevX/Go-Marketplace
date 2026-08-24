@@ -48,7 +48,7 @@ func NewProductHandler(productService ProductService, fileManager FileManager) P
 func (h ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	if err := r.ParseMultipartForm(20 * 1024 * 1024); err != nil {
+	if err := r.ParseMultipartForm(config.MaxBodySize); err != nil {
 		utils.WriteError(w, fmt.Errorf("form parse: %w", err))
 		return
 	}
@@ -94,7 +94,7 @@ func (h ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	if err := r.ParseMultipartForm(20 * 1024 * 1024); err != nil {
+	if err := r.ParseMultipartForm(config.MaxBodySize); err != nil {
 		utils.WriteError(w, fmt.Errorf("form parse: %w", err))
 		return
 	}

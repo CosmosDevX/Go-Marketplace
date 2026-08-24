@@ -65,19 +65,16 @@ func main() {
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 	productHandler := handler.NewProductHandler(productService, fileManager)
 	cartItemHandler := handler.NewCartItemHandler(cartItemService)
-	userRolehandler := handler.NewUserRoleHandler(userRoleService)
+	userRoleHandler := handler.NewUserRoleHandler(userRoleService)
 
 	//initialize middlewares
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, accessTokenRepository)
 	corsMiddleware := middleware.NewCORSMiddleware(cfg.CORSAllowedHost)
 
-	//constants
-	const maxBodySize = 1024 * 1024
-
 	r := chi.NewRouter()
 	r.Use(corsMiddleware.ActivateCORS)
 	r.Use(middleware.LoggingMiddleware)
-	r.Use(middleware.MaxBodySize(maxBodySize))
+	r.Use(middleware.MaxBodySize(config.MaxBodySize))
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(chiMiddleware.Timeout(15 * time.Second))
 
@@ -108,9 +105,9 @@ func main() {
 		})
 
 		r.Route("/roles", func(r chi.Router) {
-			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Get("/{username}", userRolehandler.List)
-			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Post("/", userRolehandler.Create)
-			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Delete("/user/{username}/role/{rolename}", userRolehandler.Delete)
+			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Get("/{username}", userRoleHandler.List)
+			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Post("/", userRoleHandler.Create)
+			r.With(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.AdminRole})).Delete("/user/{username}/role/{rolename}", userRoleHandler.Delete)
 		})
 
 		r.Route("/cart", func(r chi.Router) {

@@ -7,3 +7,5 @@ CREATE TABLE IF NOT EXISTS products (
     product_category_id INT REFERENCES categories(category_id),
     product_seller_id INT REFERENCES users(id)
 );
+
+CREATE INDEX idx_products_seller_id ON products(product_seller_id);

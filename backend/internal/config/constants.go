@@ -9,4 +9,5 @@ const (
 	SellerRole      = "seller"
 	AdminRole       = "admin"
 	UploadsPath     = "/uploads"
+	MaxBodySize     = 1024 * 1024 * 4
 )
