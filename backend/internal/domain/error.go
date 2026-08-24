@@ -12,4 +12,5 @@ var (
 	ErrTooManyRequests     = errors.New("too many requests")
 	ErrInternalServerError = errors.New("internal error")
 	ErrForbidden           = errors.New("forbidden")
+	ErrMissingFile         = errors.New("missing file")
 )

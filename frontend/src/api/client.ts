@@ -103,6 +103,13 @@ export const api = {
       true
     ),
 
+  updateProduct: (productId: number, formData: FormData) =>
+    request<{ product_id?: number; message?: string }>(
+      `/seller/products/${productId}`,
+      { method: 'PUT', body: formData },
+      true
+    ),
+
   deleteProduct: (productId: number) =>
     request<{ message: string }>(
       `/seller/products/${productId}`,

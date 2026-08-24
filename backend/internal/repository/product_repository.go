@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"myapp/internal/config"
 	"myapp/internal/domain"
+	"strings"
 
 	"github.com/shopspring/decimal"
 )
@@ -56,19 +57,23 @@ func (r ProductRepository) List(ctx context.Context, search, categorySlug, sortB
 			c.category_id, c.category_name, c.category_slug
 		FROM products AS p
 		JOIN categories AS c ON p.product_category_id = c.category_id
-		WHERE %s
-		ORDER BY %s
-		LIMIT $1 OFFSET $2
-	` //TODO: sql injection in where!
-	offset := config.ProductPageSize * (page - 1)
+		WHERE 1 = 1
+	`
+
+	conditions, args := r.buildWhere(search, categorySlug)
+	if len(conditions) > 0 {
+		baseQuery += " AND " + strings.Join(conditions, " AND ")
+	}
 
 	orderBy := r.buildOrderBy(sortBy, asc)
-	where := r.buildWhere(search, categorySlug)
-	query := fmt.Sprintf(baseQuery, where, orderBy)
+	baseQuery += " ORDER BY " + orderBy
+	baseQuery += " LIMIT ? OFFSET ?"
+	args = append(args, config.ProductPageSize, config.ProductPageSize*(page-1))
+
+	query := r.db.Rebind(baseQuery)
 
 	var productRows []productRow
-	err := r.db.SelectContext(ctx, &productRows, query, config.ProductPageSize, offset)
-	if err != nil {
+	if err := r.db.SelectContext(ctx, &productRows, query, args...); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf("get all products: %w", domain.ErrTimeout)
 		}
@@ -77,6 +82,22 @@ func (r ProductRepository) List(ctx context.Context, search, categorySlug, sortB
 	}
 
 	return r.toDomainModels(productRows), nil
+}
+
+func (r ProductRepository) buildWhere(search, categorySlug string) ([]string, []any) {
+	conditions := []string{}
+	args := []any{}
+
+	if search != "" {
+		conditions = append(conditions, "p.product_name LIKE ?")
+		args = append(args, "%"+search+"%")
+	}
+	if categorySlug != "" {
+		conditions = append(conditions, "c.category_slug = ?")
+		args = append(args, categorySlug)
+	}
+
+	return conditions, args
 }
 
 func (r ProductRepository) buildOrderBy(sortBy string, asc bool) string {
@@ -93,20 +114,6 @@ func (r ProductRepository) buildOrderBy(sortBy string, asc bool) string {
 	default:
 		return "p.product_name ASC, p.product_id ASC"
 	}
-}
-
-func (r ProductRepository) buildWhere(search, categorySlug string) string {
-	var where string
-	if categorySlug == "" {
-		where = "1 = 1"
-	} else {
-		where = fmt.Sprintf("c.category_slug = '%s'", categorySlug)
-	}
-	if search != "" {
-		where += fmt.Sprintf(" AND p.product_name LIKE '%%%s%%'", search)
-	}
-
-	return where
 }
 
 func (r ProductRepository) ListBySellerID(ctx context.Context, sellerID, page int) ([]domain.Product, error) {
@@ -151,18 +158,43 @@ func (r ProductRepository) Create(ctx context.Context, p domain.Product) (int, e
 	return productID, nil
 }
 
+func (r ProductRepository) Update(ctx context.Context, p domain.Product, productID int) error {
+	query := `
+		UPDATE products
+		SET product_name = $1, product_description = $2, product_price = $3, 
+		product_image = COALESCE($4, product_image), product_category_id = $5
+	 	WHERE product_id = $6 AND product_seller_id = $7
+	`
+	var image interface{} = nil
+	if p.Image != "" {
+		image = p.Image
+	}
+
+	sqlResult, err := r.db.ExecContext(ctx, query, p.Name, p.Description, p.Price, image, p.Category.ID, productID, p.SellerID)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf("update product: %w", domain.ErrTimeout)
+		}
+
+		return fmt.Errorf("update product: %w", err)
+	}
+
+	if affectedRows, _ := sqlResult.RowsAffected(); affectedRows == 0 {
+		return fmt.Errorf("update product by id %d: %w", productID, domain.ErrNotFound)
+	}
+
+	return nil
+}
+
 func (r ProductRepository) Delete(ctx context.Context, productID, sellerID int, isAdmin bool) error {
-	var query string
-	var args []any
-	if isAdmin {
-		query = `DELETE FROM products WHERE product_id = $1`
-		args = []any{productID}
-	} else {
-		query = `DELETE FROM products WHERE product_id = $1 AND product_seller_id = $2`
+	baseQuery := `DELETE FROM products WHERE product_id = $1`
+	args := []any{productID}
+	if !isAdmin {
+		baseQuery += ` AND product_seller_id = $2`
 		args = []any{productID, sellerID}
 	}
 
-	sqlResult, err := r.db.ExecContext(ctx, query, args...)
+	sqlResult, err := r.db.ExecContext(ctx, baseQuery, args...)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("delete product by id %d: %w", productID, domain.ErrTimeout)

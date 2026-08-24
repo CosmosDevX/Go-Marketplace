@@ -55,7 +55,7 @@ func main() {
 	authService := authorization.NewAuthService(userRepository, userRoleRepository, refreshTokenRepository, accessTokenRepository, jwtService)
 	userService := service.NewUserService(unitOfWork)
 	categoryService := service.NewCategoryService(categoryRepository)
-	productService := service.NewProductService(productRepository, categoryRepository, fileManager)
+	productService := service.NewProductService(productRepository, categoryRepository)
 	cartItemService := service.NewCartItemService(cartItemRepository, cartRepository)
 	userRoleService := service.NewUserRoleService(userRoleRepository, userRepository)
 
@@ -63,7 +63,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService, *rateLimiter)
 	userHandler := handler.NewUserHandler(userService, *rateLimiter)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
-	productHandler := handler.NewProductHandler(productService)
+	productHandler := handler.NewProductHandler(productService, fileManager)
 	cartItemHandler := handler.NewCartItemHandler(cartItemService)
 	userRolehandler := handler.NewUserRoleHandler(userRoleService)
 
@@ -103,6 +103,7 @@ func main() {
 			r.Use(authMiddleware.ProtectionMiddleware, middleware.RoleMiddleware([]string{config.SellerRole, config.AdminRole}))
 			r.Get("/", productHandler.ListBySeller)
 			r.Post("/", productHandler.Create)
+			r.Put("/{product_id}", productHandler.Update)
 			r.Delete("/{product_id}", productHandler.Delete)
 		})
 

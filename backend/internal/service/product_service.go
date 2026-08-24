@@ -3,8 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
-	"mime/multipart"
 	"myapp/internal/config"
 	"myapp/internal/domain"
 	"slices"
@@ -12,14 +10,14 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-type CreateProductInput struct {
+type ProductInput struct {
+	ID           int
 	Name         string
 	Description  string
 	Price        decimal.Decimal
 	CategorySlug string
 	SellerID     int
-	File         multipart.File
-	Header       *multipart.FileHeader
+	Filename     string
 }
 
 type ProductRepository interface {
@@ -28,11 +26,7 @@ type ProductRepository interface {
 	Create(ctx context.Context, p domain.Product) (int, error)
 	GetImageByID(ctx context.Context, productID, sellerID int, isAdmin bool) (string, error)
 	Delete(ctx context.Context, productID, sellerID int, isAdmin bool) error
-}
-
-type FileManager interface {
-	SaveFile(file multipart.File, header *multipart.FileHeader) (string, error)
-	DeleteFile(filename string) error
+	Update(ctx context.Context, p domain.Product, productID int) error
 }
 
 type CategoryIDGetter interface {
@@ -42,45 +36,55 @@ type CategoryIDGetter interface {
 type ProductService struct {
 	productRepository ProductRepository
 	categoryIDGetter  CategoryIDGetter
-	fileManager       FileManager
 }
 
-func NewProductService(productRepository ProductRepository, categoryIDGetter CategoryIDGetter, fileManager FileManager) ProductService {
+func NewProductService(productRepository ProductRepository, categoryIDGetter CategoryIDGetter) ProductService {
 	return ProductService{
 		productRepository: productRepository,
 		categoryIDGetter:  categoryIDGetter,
-		fileManager:       fileManager,
 	}
 }
 
-func (s ProductService) Create(ctx context.Context, input CreateProductInput) (int, error) {
+func (s ProductService) Create(ctx context.Context, input ProductInput) (int, error) {
 	categoryID, err := s.categoryIDGetter.GetIDBySlug(ctx, input.CategorySlug)
 	if err != nil {
 		return 0, err
 	}
 
-	filename, err := s.fileManager.SaveFile(input.File, input.Header)
+	product, err := domain.NewProduct(input.Name, input.Description, input.Filename, input.Price, categoryID, input.SellerID)
 	if err != nil {
-		return 0, err
-	}
-
-	product, err := domain.NewProduct(input.Name, input.Description, filename, input.Price, categoryID, input.SellerID)
-	if err != nil {
-		if err := s.fileManager.DeleteFile(filename); err != nil {
-			return 0, err
-		}
 		return 0, err
 	}
 
 	productID, err := s.productRepository.Create(ctx, product)
 	if err != nil {
-		if err := s.fileManager.DeleteFile(filename); err != nil {
-			log.Println(err)
-		}
 		return 0, err
 	}
 
 	return productID, nil
+}
+
+func (s ProductService) Update(ctx context.Context, input ProductInput) (string, error) {
+	categoryID, err := s.categoryIDGetter.GetIDBySlug(ctx, input.CategorySlug)
+	if err != nil {
+		return "", err
+	}
+
+	product, err := domain.NewProduct(input.Name, input.Description, input.Filename, input.Price, categoryID, input.SellerID)
+	if err != nil {
+		return "", err
+	}
+
+	oldFilename, err := s.productRepository.GetImageByID(ctx, input.ID, input.SellerID, false)
+	if err != nil {
+		return "", err
+	}
+
+	if err := s.productRepository.Update(ctx, product, input.ID); err != nil {
+		return "", err
+	}
+
+	return oldFilename, nil
 }
 
 func (s ProductService) List(ctx context.Context, search, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error) {
@@ -109,7 +113,7 @@ func (s ProductService) ListBySellerID(ctx context.Context, sellerID, page int) 
 	return products, nil
 }
 
-func (s ProductService) Delete(ctx context.Context, productID, sellerID int, roles []string) error {
+func (s ProductService) Delete(ctx context.Context, productID, sellerID int, roles []string) (string, error) {
 	isAdmin := false
 	if slices.Contains(roles, config.AdminRole) {
 		isAdmin = true
@@ -117,19 +121,12 @@ func (s ProductService) Delete(ctx context.Context, productID, sellerID int, rol
 
 	filename, err := s.productRepository.GetImageByID(ctx, productID, sellerID, isAdmin)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if err := s.productRepository.Delete(ctx, productID, sellerID, isAdmin); err != nil {
-		if err := s.fileManager.DeleteFile(filename); err != nil {
-			log.Println(err)
-		}
-		return err
+		return "", err
 	}
 
-	if err := s.fileManager.DeleteFile(filename); err != nil {
-		return err
-	}
-
-	return nil
+	return filename, nil
 }

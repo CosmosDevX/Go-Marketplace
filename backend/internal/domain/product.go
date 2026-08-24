@@ -23,9 +23,6 @@ func NewProduct(name, description, image string, price decimal.Decimal, category
 	if description == "" {
 		return Product{}, fmt.Errorf("description: %w", ErrValidation)
 	}
-	if image == "" {
-		return Product{}, fmt.Errorf("image: %w", ErrValidation)
-	}
 	if price.LessThanOrEqual(decimal.Zero) {
 		return Product{}, fmt.Errorf("price must be positive: %w", ErrValidation)
 	}

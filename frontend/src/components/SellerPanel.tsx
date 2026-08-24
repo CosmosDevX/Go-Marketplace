@@ -7,6 +7,7 @@ import {
   PackageOpen,
   ImageOff,
   FolderPlus,
+  Pencil,
 } from 'lucide-react';
 import { api, ApiError } from '../api/client';
 import type { Category, Product } from '../types';
@@ -36,6 +37,7 @@ export function SellerPanel({
   const [showLoader, setShowLoader] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
 
   const [name, setName] = useState('');
@@ -102,9 +104,26 @@ export function SellerPanel({
     setPrice('');
     setImageFile(null);
     setFormError(null);
+    setEditingProduct(null);
   };
 
-  const handleCreate = async (e: FormEvent) => {
+  const openCreateForm = () => {
+    resetForm();
+    setShowForm(true);
+  };
+
+  const openEditForm = (p: Product) => {
+    setEditingProduct(p);
+    setName(p.product_name);
+    setDescription(p.product_description);
+    setCategorySlug(p.category?.category_slug ?? '');
+    setPrice(String(p.product_price));
+    setImageFile(null);
+    setFormError(null);
+    setShowForm(true);
+  };
+
+  const handleSubmitProduct = async (e: FormEvent) => {
     e.preventDefault();
     setFormError(null);
     setSubmitting(true);
@@ -115,18 +134,32 @@ export function SellerPanel({
       formData.append('product_description', description);
       formData.append('category_slug', categorySlug);
       formData.append('product_price', price);
+      // фото только если выбрали новое — иначе бэкенд оставит старое
       if (imageFile) {
         formData.append('product_image', imageFile);
       }
 
-      await api.createProduct(formData);
+      if (editingProduct) {
+        await api.updateProduct(editingProduct.product_id, formData);
+      } else {
+        await api.createProduct(formData);
+      }
+
       resetForm();
       setShowForm(false);
       setPage(1);
-      const data = await api.getSellerProducts(1);
+      const data = isAdmin
+        ? await api.getProducts({ page: 1 })
+        : await api.getSellerProducts(1);
       setProducts(Array.isArray(data?.products) ? data.products : []);
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : 'Ошибка создания');
+      setFormError(
+        err instanceof ApiError
+          ? err.message
+          : editingProduct
+            ? 'Ошибка сохранения'
+            : 'Ошибка создания'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -219,13 +252,17 @@ export function SellerPanel({
             <button
               type="button"
               onClick={() => {
-                resetForm();
-                setShowForm((v) => !v);
+                if (showForm) {
+                  resetForm();
+                  setShowForm(false);
+                } else {
+                  openCreateForm();
+                }
               }}
               className="btn-gradient flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium text-black"
             >
               <Plus size={16} />
-              {showForm ? 'Закрыть форму' : 'Новый товар'}
+              {showForm && !editingProduct ? 'Закрыть форму' : 'Новый товар'}
             </button>
           )}
         </div>
@@ -288,10 +325,12 @@ export function SellerPanel({
 
       {!isAdmin && showForm && (
         <form
-          onSubmit={handleCreate}
+          onSubmit={handleSubmitProduct}
           className="mb-8 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4"
         >
-          <h2 className="text-lg font-medium">Создать товар</h2>
+          <h2 className="text-lg font-medium">
+            {editingProduct ? 'Редактировать товар' : 'Создать товар'}
+          </h2>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -359,6 +398,11 @@ export function SellerPanel({
             <div>
               <label className="mb-1.5 block text-sm text-[var(--color-text-muted)]">
                 Фото
+                {editingProduct && (
+                  <span className="ml-1 font-normal text-[var(--color-text-muted)]">
+                    (необязательно — оставьте пустым, чтобы сохранить текущее)
+                  </span>
+                )}
               </label>
               <input
                 type="file"
@@ -381,7 +425,7 @@ export function SellerPanel({
             className="btn-gradient flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-black disabled:opacity-60"
           >
             {submitting && <Loader2 size={16} className="animate-spin" />}
-            Создать
+            {editingProduct ? 'Сохранить' : 'Создать'}
           </button>
         </form>
       )}
@@ -462,14 +506,26 @@ export function SellerPanel({
                         {formatPrice(p.product_price)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(p)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-xs text-[var(--color-text-muted)] hover:border-red-500/40 hover:text-red-400"
-                        >
-                          <Trash2 size={14} />
-                          Удалить
-                        </button>
+                        <div className="inline-flex items-center gap-1.5">
+                          {!isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => openEditForm(p)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-xs text-[var(--color-text-muted)] hover:border-[var(--color-accent)]/50 hover:text-[var(--color-accent)]"
+                            >
+                              <Pencil size={14} />
+                              Изменить
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(p)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-xs text-[var(--color-text-muted)] hover:border-red-500/40 hover:text-red-400"
+                          >
+                            <Trash2 size={14} />
+                            Удалить
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

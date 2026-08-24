@@ -2,7 +2,10 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
+	"mime/multipart"
 	"myapp/internal/config"
 	"myapp/internal/domain"
 	"myapp/internal/service"
@@ -18,19 +21,27 @@ import (
 )
 
 type ProductService interface {
-	Create(ctx context.Context, input service.CreateProductInput) (int, error)
+	Create(ctx context.Context, input service.ProductInput) (int, error)
 	ListBySellerID(ctx context.Context, sellerID, page int) ([]domain.Product, error)
 	List(ctx context.Context, search, categorySlug, sortBy string, asc bool, page int) ([]domain.Product, error)
-	Delete(ctx context.Context, productID, sellerID int, roles []string) error
+	Delete(ctx context.Context, productID, sellerID int, roles []string) (string, error)
+	Update(ctx context.Context, input service.ProductInput) (string, error)
+}
+
+type FileManager interface {
+	SaveFile(file multipart.File, header *multipart.FileHeader) (string, error)
+	DeleteFile(filename string) error
 }
 
 type ProductHandler struct {
 	productService ProductService
+	fileManager    FileManager
 }
 
-func NewProductHandler(productService ProductService) ProductHandler {
+func NewProductHandler(productService ProductService, fileManager FileManager) ProductHandler {
 	return ProductHandler{
 		productService: productService,
+		fileManager:    fileManager,
 	}
 }
 
@@ -42,61 +53,104 @@ func (h ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, header, err := r.FormFile("product_image")
-	if err != nil {
-		utils.WriteError(w, fmt.Errorf("get file from form: %w", err))
-		return
-	}
-
-	var contentType string
-	if header != nil {
-		contentType = header.Header.Get("Content-Type")
-	}
-	if file != nil && !strings.HasPrefix(contentType, "image/") {
-		utils.WriteError(w, fmt.Errorf("invalid file type: %w", domain.ErrValidation))
-		return
-	}
-	if file != nil {
-		defer file.Close()
-	}
-
-	productPrice, err := decimal.NewFromString(r.FormValue("product_price"))
-	if err != nil {
-		utils.WriteError(w, fmt.Errorf("string to decimal product price: %w", err))
-		return
-	}
-
-	user, err := middleware.UserFromContext(ctx)
+	parsedFile, err := h.parseImage(r, "product_image")
 	if err != nil {
 		utils.WriteError(w, err)
 		return
 	}
 
-	dto := dto.CreateProductDTO{
-		Name:         r.FormValue("product_name"),
-		Description:  r.FormValue("product_description"),
-		Price:        productPrice,
-		CategorySlug: r.FormValue("category_slug"),
-		SellerID:     user.UserID,
-	}
-
-	if err := validator.Struct(dto); err != nil {
-		utils.WriteError(w, fmt.Errorf("create product dto: %w", domain.ErrValidation))
+	dto, err := h.makeProduct(ctx, r)
+	if err != nil {
+		utils.WriteError(w, err)
 		return
 	}
 
-	productID, err := h.productService.Create(ctx, service.CreateProductInput{
+	filename, err := h.fileManager.SaveFile(parsedFile.File, parsedFile.Header)
+	if err != nil {
+		utils.WriteError(w, err)
+		return
+	}
+	parsedFile.File.Close()
+
+	productID, err := h.productService.Create(ctx, service.ProductInput{
 		Name:         dto.Name,
 		Description:  dto.Description,
 		Price:        dto.Price,
 		CategorySlug: dto.CategorySlug,
 		SellerID:     dto.SellerID,
-		File:         file,
-		Header:       header,
+		Filename:     filename,
 	})
+	if err != nil {
+		if err := h.fileManager.DeleteFile(filename); err != nil {
+			log.Println(err)
+		}
+		utils.WriteError(w, err)
+		return
+	}
+
+	utils.WriteJSON(w, map[string]int{"product_id": productID})
+}
+
+func (h ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	if err := r.ParseMultipartForm(20 * 1024 * 1024); err != nil {
+		utils.WriteError(w, fmt.Errorf("form parse: %w", err))
+		return
+	}
+
+	parsedFile, err := h.parseImage(r, "product_image")
+	if err != nil {
+		if !errors.Is(err, domain.ErrMissingFile) {
+			utils.WriteError(w, err)
+			return
+		}
+	}
+
+	dto, err := h.makeProduct(ctx, r)
 	if err != nil {
 		utils.WriteError(w, err)
 		return
+	}
+
+	var filename string
+	if parsedFile.File != nil && parsedFile.Header != nil {
+		filename, err = h.fileManager.SaveFile(parsedFile.File, parsedFile.Header)
+		if err != nil {
+			utils.WriteError(w, err)
+			return
+		}
+	}
+	parsedFile.File.Close()
+
+	productID, err := strconv.Atoi(r.PathValue("product_id"))
+	if err != nil {
+		utils.WriteError(w, fmt.Errorf("productID parse: %w", domain.ErrParse))
+		return
+	}
+
+	oldFilename, err := h.productService.Update(ctx, service.ProductInput{
+		ID:           productID,
+		Name:         dto.Name,
+		Description:  dto.Description,
+		Price:        dto.Price,
+		CategorySlug: dto.CategorySlug,
+		SellerID:     dto.SellerID,
+		Filename:     filename,
+	})
+	if err != nil {
+		if err := h.fileManager.DeleteFile(filename); err != nil {
+			log.Println(err)
+		}
+		utils.WriteError(w, err)
+		return
+	}
+
+	if filename != "" {
+		if err := h.fileManager.DeleteFile(oldFilename); err != nil {
+			utils.WriteError(w, err)
+			return
+		}
 	}
 
 	utils.WriteJSON(w, map[string]int{"product_id": productID})
@@ -185,10 +239,64 @@ func (h ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.productService.Delete(ctx, productID, user.UserID, user.Roles); err != nil {
+	filename, err := h.productService.Delete(ctx, productID, user.UserID, user.Roles)
+	if err != nil {
+		utils.WriteError(w, err)
+		return
+	}
+
+	if err := h.fileManager.DeleteFile(filename); err != nil {
 		utils.WriteError(w, err)
 		return
 	}
 
 	utils.WriteJSON(w, map[string]string{"message": "delete successful"})
+}
+
+type ParsedFile struct {
+	File   multipart.File
+	Header *multipart.FileHeader
+}
+
+func (h ProductHandler) parseImage(r *http.Request, formFilename string) (ParsedFile, error) {
+	file, header, err := r.FormFile(formFilename)
+	if file == nil || header == nil {
+		return ParsedFile{}, fmt.Errorf("file is missing: %w", domain.ErrMissingFile)
+	}
+	if err != nil {
+		return ParsedFile{}, fmt.Errorf("get file from form: %w", err)
+	}
+
+	contentType := header.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "image/") {
+		return ParsedFile{}, fmt.Errorf("invalid file type: %w", domain.ErrValidation)
+	}
+
+	return ParsedFile{File: file, Header: header}, nil
+}
+
+func (h ProductHandler) makeProduct(ctx context.Context, r *http.Request) (dto.CreateProductDTO, error) {
+	productPrice, err := decimal.NewFromString(r.FormValue("product_price"))
+	if err != nil {
+		return dto.CreateProductDTO{}, fmt.Errorf("string to decimal product price: %w", err)
+	}
+
+	user, err := middleware.UserFromContext(ctx)
+	if err != nil {
+		return dto.CreateProductDTO{}, err
+	}
+
+	productDTO := dto.CreateProductDTO{
+		Name:         r.FormValue("product_name"),
+		Description:  r.FormValue("product_description"),
+		Price:        productPrice,
+		CategorySlug: r.FormValue("category_slug"),
+		SellerID:     user.UserID,
+	}
+
+	if err := validator.Struct(productDTO); err != nil {
+		return dto.CreateProductDTO{}, fmt.Errorf("create product dto: %w", domain.ErrValidation)
+	}
+
+	return productDTO, nil
 }
