@@ -47,6 +47,8 @@ func main() {
 	productRepository := repository.NewProductRepository(sqlxClient.GetDB())
 	cartRepository := repository.NewCartRepository(sqlxClient.GetDB())
 	cartItemRepository := repository.NewCartItemRepository(sqlxClient.GetDB())
+	orderRepository := repository.NewOrderRepository(sqlxClient.GetDB())
+
 	refreshTokenRepository := repository.NewRefreshTokenRepository(redisClient.GetClient())
 	accessTokenRepository := repository.NewAccessTokenRepository(redisClient.GetClient())
 
@@ -58,6 +60,7 @@ func main() {
 	productService := service.NewProductService(productRepository, categoryRepository)
 	cartItemService := service.NewCartItemService(cartItemRepository, cartRepository)
 	userRoleService := service.NewUserRoleService(userRoleRepository, userRepository)
+	orderService := service.NewOrderService(unitOfWork, orderRepository)
 
 	//initialize handlers
 	authHandler := handler.NewAuthHandler(authService, *rateLimiter)
@@ -66,6 +69,7 @@ func main() {
 	productHandler := handler.NewProductHandler(productService, fileManager)
 	cartItemHandler := handler.NewCartItemHandler(cartItemService)
 	userRoleHandler := handler.NewUserRoleHandler(userRoleService)
+	orderHandler := handler.NewOrderHandler(orderService)
 
 	//initialize middlewares
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, accessTokenRepository)
@@ -94,6 +98,11 @@ func main() {
 
 		r.Route("/products", func(r chi.Router) {
 			r.Get("/", productHandler.List)
+		})
+
+		r.Route("/orders", func(r chi.Router) {
+			r.With(authMiddleware.ProtectionMiddleware).Post("/", orderHandler.Create)
+			r.With(authMiddleware.ProtectionMiddleware).Get("/", orderHandler.ListByUserID)
 		})
 
 		r.Route("/seller/products", func(r chi.Router) {

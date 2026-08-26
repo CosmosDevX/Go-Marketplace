@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Plus, Minus, Trash2, ShoppingBag, Loader2 } from 'lucide-react';
 import type { CartItem } from '../types';
 import { formatPrice } from '../utils/emoji';
@@ -15,6 +15,7 @@ interface Props {
   totalPrice: number;
   onChangeQuantity: (cartItemId: number, delta: 1 | -1) => Promise<void>;
   onRemove: (cartItemId: number) => Promise<void>;
+  onCheckout: () => Promise<void>;
 }
 
 export function CartDrawer({
@@ -26,9 +27,25 @@ export function CartDrawer({
   totalPrice,
   onChangeQuantity,
   onRemove,
+  onCheckout,
 }: Props) {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutSuccess, setCheckoutSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setCheckoutSuccess(null);
+      setActionError(null);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      // после успешного заказа корзина пустая — сообщение можно сбросить при следующем открытии
+    }
+  }, [items.length]);
 
   if (!open) return null;
 
@@ -174,13 +191,29 @@ export function CartDrawer({
                 {formatPrice(String(totalPrice))}
               </span>
             </div>
+            {checkoutSuccess && (
+              <p className="mb-2 text-center text-sm text-emerald-300">{checkoutSuccess}</p>
+            )}
             <button
               type="button"
-              className="w-full rounded-xl bg-[var(--color-accent)] py-3 text-sm font-semibold text-black hover:bg-[var(--color-accent-hover)]"
-              onClick={() => {
-                // оформление заказа — позже
+              disabled={checkoutLoading}
+              className="btn-gradient flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-black disabled:opacity-60"
+              onClick={async () => {
+                setActionError(null);
+                setCheckoutSuccess(null);
+                setCheckoutLoading(true);
+                try {
+                  await onCheckout();
+                  setCheckoutSuccess('Заказ оформлен');
+                  window.setTimeout(() => setCheckoutSuccess(null), 2500);
+                } catch (e) {
+                  setActionError(e instanceof ApiError ? e.message : 'Не удалось оформить заказ');
+                } finally {
+                  setCheckoutLoading(false);
+                }
               }}
             >
+              {checkoutLoading && <Loader2 size={16} className="animate-spin" />}
               Оформить заказ
             </button>
           </div>

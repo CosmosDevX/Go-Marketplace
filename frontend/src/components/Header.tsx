@@ -24,6 +24,7 @@ interface Props {
   onCartClick: () => void;
   onSellerClick: () => void;
   onAdminClick: () => void;
+  onProfileClick: () => void;
 }
 
 export function Header({
@@ -38,6 +39,7 @@ export function Header({
   onCartClick,
   onSellerClick,
   onAdminClick,
+  onProfileClick,
 }: Props) {
   const [logoFailed, setLogoFailed] = useState(false);
 
@@ -119,10 +121,15 @@ export function Header({
 
           {user ? (
             <>
-              <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm">
+              <button
+                type="button"
+                onClick={onProfileClick}
+                className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm transition-colors hover:border-[var(--color-accent)]/50 hover:bg-[var(--color-surface-hover)]"
+                title="Профиль"
+              >
                 <User size={16} className="text-[var(--color-accent)]" />
                 <span className="max-w-[120px] truncate font-medium">{user.username}</span>
-              </div>
+              </button>
               <motion.button
                 type="button"
                 whileHover={{ scale: 1.03 }}

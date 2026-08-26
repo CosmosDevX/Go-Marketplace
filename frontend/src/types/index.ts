@@ -11,6 +11,7 @@ export interface Product {
   product_price: string;
   product_image: string | null;
   category: Category;
+  seller_id?: number;
 }
 
 export interface ProductsResponse {
@@ -24,6 +25,21 @@ export interface CartItem {
   cart_id: number;
   product: Product;
   quantity: number;
+}
+
+export interface OrderItem {
+  order_item_id: number;
+  product: Product;
+  order_item_quantity: number;
+  order_item_total: string;
+}
+
+export interface Order {
+  order_id: number;
+  order_status: string;
+  user_id: number;
+  order_total: string;
+  order_items: OrderItem[];
 }
 
 export interface AuthTokens {

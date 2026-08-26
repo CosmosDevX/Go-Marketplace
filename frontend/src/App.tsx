@@ -7,12 +7,13 @@ import { Pagination } from './components/Pagination';
 import { AuthModal } from './components/AuthModal';
 import { CartDrawer } from './components/CartDrawer';
 import { SellerPanel } from './components/SellerPanel';
+import { ProfilePage } from './components/ProfilePage';
 import { api, ApiError } from './api/client';
 import { useAuth } from './hooks/useAuth';
 import { useCart } from './hooks/useCart';
 import type { Category, Product } from './types';
 
-type View = 'catalog' | 'seller' | 'admin';
+type View = 'catalog' | 'seller' | 'admin' | 'profile';
 
 function App() {
   const auth = useAuth();
@@ -168,13 +169,17 @@ function App() {
         onLogout={() => {
           auth.logout();
           setView('catalog');
+          setCartOpen(false);
         }}
         onCartClick={handleCartClick}
         onSellerClick={() => setView('seller')}
         onAdminClick={() => setView('admin')}
+        onProfileClick={() => setView('profile')}
       />
 
-      {(view === 'admin' && auth.canAccessAdminPanel) ||
+      {view === 'profile' && auth.user ? (
+        <ProfilePage user={auth.user} onBack={() => setView('catalog')} />
+      ) : (view === 'admin' && auth.canAccessAdminPanel) ||
       (view === 'seller' && auth.canAccessSellerPanel) ? (
         <SellerPanel
           onBack={() => setView('catalog')}
@@ -306,6 +311,10 @@ function App() {
         totalPrice={cart.totalPrice}
         onChangeQuantity={cart.changeQuantity}
         onRemove={cart.removeItem}
+        onCheckout={async () => {
+          await api.createOrder();
+          await cart.loadCart();
+        }}
       />
     </div>
   );

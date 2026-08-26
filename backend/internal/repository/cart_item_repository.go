@@ -20,6 +20,7 @@ type cartItemRow struct {
 	ProductDescription string          `db:"product_description"`
 	ProductPrice       decimal.Decimal `db:"product_price"`
 	ProductImage       string          `db:"product_image"`
+	ProductSellerID    int             `db:"product_seller_id"`
 	CategoryID         int             `db:"category_id"`
 	CategoryName       string          `db:"category_name"`
 	CategorySlug       string          `db:"category_slug"`
@@ -36,6 +37,7 @@ func (r cartItemRow) toDomain() domain.CartItem {
 			Description: r.ProductDescription,
 			Price:       r.ProductPrice,
 			Image:       r.ProductImage,
+			SellerID:    r.ProductSellerID,
 			Category: domain.Category{
 				ID:   r.CategoryID,
 				Name: r.CategoryName,
@@ -77,7 +79,7 @@ func (r CartItemRepository) Create(ctx context.Context, cartID, productID int) (
 func (r CartItemRepository) ListByCartID(ctx context.Context, cartID int) ([]domain.CartItem, error) {
 	query := `
 		SELECT ci.cart_item_id, ci.cart_id, ci.quantity, 
-		p.product_id, p.product_name, p.product_description, p.product_price, p.product_image,
+		p.product_id, p.product_name, p.product_description, p.product_price, p.product_image, p.product_seller_id,
 		c.category_id, c.category_name, c.category_slug
 		FROM cart_items AS ci
 		JOIN products AS p ON p.product_id = ci.product_id
@@ -141,6 +143,24 @@ func (r CartItemRepository) Delete(ctx context.Context, cartID, cartItemID int) 
 
 	if affectedRows, _ := sqlResult.RowsAffected(); affectedRows == 0 {
 		return fmt.Errorf("cart item %d in cart %d: %w", cartItemID, cartID, domain.ErrNotFound)
+	}
+
+	return nil
+}
+
+func (r CartItemRepository) DeleteAllByCartID(ctx context.Context, cartID int) error {
+	query := `DELETE FROM cart_items WHERE cart_id = $1`
+	sqlResult, err := r.db.ExecContext(ctx, query, cartID)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf("clear cart %d: %w", cartID, domain.ErrTimeout)
+		}
+
+		return fmt.Errorf("clear cart %d: %w", cartID, err)
+	}
+
+	if affectedRows, _ := sqlResult.RowsAffected(); affectedRows == 0 {
+		return fmt.Errorf("clear cart %d: %w", cartID, domain.ErrNotFound)
 	}
 
 	return nil

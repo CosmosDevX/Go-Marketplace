@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS products (
     product_description VARCHAR(400) NOT NULL,
     product_price DECIMAL(10, 2) NOT NULL,
     product_image VARCHAR(200) NOT NULL,
-    product_category_id INT REFERENCES categories(category_id),
-    product_seller_id INT REFERENCES users(id)
+    product_category_id INTEGER REFERENCES categories(category_id),
+    product_seller_id INTEGER REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_products_seller_id ON products(product_seller_id);

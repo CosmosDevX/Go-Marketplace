@@ -137,6 +137,13 @@ export const api = {
   logout: () =>
     request<{ message: string }>('/logout', { method: 'POST' }, true),
 
+
+  getOrders: () =>
+    request<import('../types').Order[]>('/orders', {}, true),
+
+  createOrder: () =>
+    request<{ order_id: number }>('/orders', { method: 'POST' }, true),
+
   // Roles (admin)
   grantRole: (dto: { username: string; role: string }) =>
     request<{ message: string }>(

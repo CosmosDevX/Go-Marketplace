@@ -127,11 +127,7 @@ export function ProductCard({
                 <Minus size={14} />
               </button>
               <span className="min-w-[1.5rem] text-center text-sm font-semibold tabular-nums">
-                {busy ? (
-                  <Loader2 size={14} className="mx-auto animate-spin" />
-                ) : (
-                  quantity
-                )}
+                {quantity}
               </span>
               <button
                 type="button"
