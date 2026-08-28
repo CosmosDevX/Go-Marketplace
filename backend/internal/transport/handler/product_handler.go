@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"mime/multipart"
 	"myapp/internal/config"
 	"myapp/internal/domain"
+	"myapp/internal/logger"
 	"myapp/internal/service"
 	"myapp/internal/transport/dto"
 	"myapp/internal/transport/middleware"
@@ -58,25 +58,25 @@ func (h ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseMultipartForm(config.MaxBodySize); err != nil {
-		utils.WriteError(w, fmt.Errorf("form parse: %w", err))
+		utils.WriteError(ctx, w, fmt.Errorf("form parse: %w", err))
 		return
 	}
 
 	parsedFile, err := h.parseImage(r, "product_image")
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	dto, err := h.makeProduct(ctx, r)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	filename, err := h.fileManager.SaveFile(parsedFile.File, parsedFile.Header)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 	parsedFile.File.Close()
@@ -90,10 +90,10 @@ func (h ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Filename:     filename,
 	})
 	if err != nil {
-		if err := h.fileManager.DeleteFile(filename); err != nil {
-			log.Println(err)
+		if delErr := h.fileManager.DeleteFile(filename); delErr != nil {
+			logger.FromContext(ctx).Error("failed to delete product image after create error", "error", delErr)
 		}
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -104,21 +104,21 @@ func (h ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if err := r.ParseMultipartForm(config.MaxBodySize); err != nil {
-		utils.WriteError(w, fmt.Errorf("form parse: %w", err))
+		utils.WriteError(ctx, w, fmt.Errorf("form parse: %w", err))
 		return
 	}
 
 	parsedFile, err := h.parseImage(r, "product_image")
 	if err != nil {
 		if !errors.Is(err, domain.ErrMissingFile) {
-			utils.WriteError(w, err)
+			utils.WriteError(ctx, w, err)
 			return
 		}
 	}
 
 	dto, err := h.makeProduct(ctx, r)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -126,7 +126,7 @@ func (h ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if parsedFile.File != nil && parsedFile.Header != nil {
 		filename, err = h.fileManager.SaveFile(parsedFile.File, parsedFile.Header)
 		if err != nil {
-			utils.WriteError(w, err)
+			utils.WriteError(ctx, w, err)
 			return
 		}
 	}
@@ -134,7 +134,7 @@ func (h ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	productID, err := strconv.Atoi(r.PathValue("product_id"))
 	if err != nil {
-		utils.WriteError(w, fmt.Errorf("productID parse: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("productID parse: %w", domain.ErrParse))
 		return
 	}
 
@@ -148,16 +148,16 @@ func (h ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Filename:     filename,
 	})
 	if err != nil {
-		if err := h.fileManager.DeleteFile(filename); err != nil {
-			log.Println(err)
+		if delErr := h.fileManager.DeleteFile(filename); delErr != nil {
+			logger.FromContext(ctx).Error("failed to delete product image after update error", "error", delErr)
 		}
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	if filename != "" {
 		if err := h.fileManager.DeleteFile(oldFilename); err != nil {
-			utils.WriteError(w, err)
+			utils.WriteError(ctx, w, err)
 			return
 		}
 	}
@@ -178,13 +178,13 @@ func (h ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	page, parseErr := strconv.Atoi(r.URL.Query().Get("page"))
 	if parseErr != nil {
-		utils.WriteError(w, fmt.Errorf("page parse: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("page parse: %w", domain.ErrParse))
 		return
 	}
 
 	products, err := h.productService.List(ctx, search, categorySlug, sortBy, asc, page)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -205,19 +205,19 @@ func (h ProductHandler) ListBySeller(w http.ResponseWriter, r *http.Request) {
 
 	page, parseErr := strconv.Atoi(r.URL.Query().Get("page"))
 	if parseErr != nil {
-		utils.WriteError(w, fmt.Errorf("page parse: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("page parse: %w", domain.ErrParse))
 		return
 	}
 
 	user, err := middleware.UserFromContext(ctx)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	products, err := h.productService.ListBySellerID(ctx, user.UserID, page)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -238,24 +238,24 @@ func (h ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	productID, err := strconv.Atoi(r.PathValue("product_id"))
 	if err != nil {
-		utils.WriteError(w, fmt.Errorf("product id parse: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("product id parse: %w", domain.ErrParse))
 		return
 	}
 
 	user, err := middleware.UserFromContext(ctx)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	filename, err := h.productService.Delete(ctx, productID, user.UserID, user.Roles)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	if err := h.fileManager.DeleteFile(filename); err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 

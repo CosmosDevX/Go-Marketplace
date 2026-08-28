@@ -54,34 +54,34 @@ func (m AuthMiddleware) ProtectionMiddleware(next http.Handler) http.Handler {
 		ctx := r.Context()
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			utils.WriteError(w, fmt.Errorf("auth header is empty: %w", domain.ErrUnauthorized))
+			utils.WriteError(ctx, w, fmt.Errorf("auth header is empty: %w", domain.ErrUnauthorized))
 			return
 		}
 
 		if !strings.HasPrefix(authHeader, "Bearer ") {
-			utils.WriteError(w, fmt.Errorf("invalid auth scheme type: %w", domain.ErrUnauthorized))
+			utils.WriteError(ctx, w, fmt.Errorf("invalid auth scheme type: %w", domain.ErrUnauthorized))
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == "" {
-			utils.WriteError(w, fmt.Errorf("token is empty: %w", domain.ErrUnauthorized))
+			utils.WriteError(ctx, w, fmt.Errorf("token is empty: %w", domain.ErrUnauthorized))
 			return
 		}
 
 		claims, err := m.jwtService.ParseAccessToken(tokenString)
 		if err != nil {
-			utils.WriteError(w, fmt.Errorf("auth token: %w", domain.ErrUnauthorized))
+			utils.WriteError(ctx, w, fmt.Errorf("auth token: %w", domain.ErrUnauthorized))
 			return
 		}
 
 		isExists, err := m.tokenBlacklistChecker.Exists(ctx, utils.HashToken(tokenString))
 		if err != nil {
-			utils.WriteError(w, err)
+			utils.WriteError(ctx, w, err)
 			return
 		}
 		if isExists {
-			utils.WriteError(w, fmt.Errorf("access token in blacklist: %w", domain.ErrUnauthorized))
+			utils.WriteError(ctx, w, fmt.Errorf("access token in blacklist: %w", domain.ErrUnauthorized))
 			return
 		}
 

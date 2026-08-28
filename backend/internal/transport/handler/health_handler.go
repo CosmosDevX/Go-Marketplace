@@ -2,7 +2,7 @@
 package handler
 
 import (
-	"log"
+	"myapp/internal/logger"
 	"myapp/internal/utils"
 	"net/http"
 
@@ -24,16 +24,17 @@ func NewHealthHandler(db *sqlx.DB, redisClient *redis.Client) HealthHandler {
 
 func (h HealthHandler) CheckHealth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	log := logger.FromContext(ctx)
 
 	if err := h.db.PingContext(ctx); err != nil {
-		log.Println("sql db is unvailable")
+		log.Error("sql db is unavailable", "error", err)
 		w.WriteHeader(http.StatusServiceUnavailable)
 		utils.WriteJSON(w, map[string]string{"status": "unhealthy"})
 		return
 	}
 
 	if err := h.redisClient.Ping(ctx).Err(); err != nil {
-		log.Println("redis db is unvailable")
+		log.Error("redis is unavailable", "error", err)
 		w.WriteHeader(http.StatusServiceUnavailable)
 		utils.WriteJSON(w, map[string]string{"status": "unhealthy"})
 		return

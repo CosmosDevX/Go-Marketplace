@@ -2,7 +2,6 @@
 package config
 
 import (
-	"log"
 	"log/slog"
 	"os"
 
@@ -27,11 +26,13 @@ func (c *Config) Load() {
 
 	c.SecretKey = os.Getenv("SECRET_KEY")
 	if c.SecretKey == "" {
-		log.Fatal("secret key is empty!")
+		slog.Error("secret key is empty")
+		os.Exit(1)
 	}
 	c.DBConnectionString = os.Getenv("DB_CONNECTION_STRING")
 	if c.DBConnectionString == "" {
-		log.Fatal("db connection string is empty!")
+		slog.Error("db connection string is empty")
+		os.Exit(1)
 	}
 	c.LogFormat = os.Getenv("LOG_FORMAT")
 	c.LogLevel = os.Getenv("LOG_LEVEL")
@@ -40,6 +41,7 @@ func (c *Config) Load() {
 	c.CORSAllowedHost = os.Getenv("CORS_ALLOWED_HOST")
 	c.UploadsDir = os.Getenv("UPLOADS_DIR")
 	if c.UploadsDir == "" {
-		log.Fatal("uploads dir is empty!")
+		slog.Error("uploads dir is empty")
+		os.Exit(1)
 	}
 }

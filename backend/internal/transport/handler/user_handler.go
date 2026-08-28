@@ -41,12 +41,12 @@ func (h UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var dto dto.CreateUserDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		utils.WriteError(w, fmt.Errorf("create user dto: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("create user dto: %w", domain.ErrParse))
 		return
 	}
 
 	if err := validator.Struct(dto); err != nil {
-		utils.WriteError(w, fmt.Errorf("create user dto: %w", domain.ErrValidation))
+		utils.WriteError(ctx, w, fmt.Errorf("create user dto: %w", domain.ErrValidation))
 		return
 	}
 
@@ -56,7 +56,7 @@ func (h UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Email:    dto.Email,
 	})
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 

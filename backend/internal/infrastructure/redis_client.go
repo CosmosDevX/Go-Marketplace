@@ -2,7 +2,8 @@ package infrastructure
 
 import (
 	"context"
-	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -23,7 +24,8 @@ func NewRedisClient(ctx context.Context, clientHost, clientPassword string) Redi
 
 	_, err := client.Ping(ctx).Result()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("redis ping failed", "error", err)
+		os.Exit(1)
 	}
 
 	return RedisClient{

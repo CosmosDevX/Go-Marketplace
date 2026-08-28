@@ -32,12 +32,12 @@ func (h CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var dto dto.CreateCategoryDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		utils.WriteError(w, fmt.Errorf("create category dto: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("create category dto: %w", domain.ErrParse))
 		return
 	}
 
 	if err := validator.Struct(dto); err != nil {
-		utils.WriteError(w, fmt.Errorf("create category dto: %w", domain.ErrValidation))
+		utils.WriteError(ctx, w, fmt.Errorf("create category dto: %w", domain.ErrValidation))
 		return
 	}
 
@@ -46,7 +46,7 @@ func (h CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Slug: dto.Slug,
 	})
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -58,7 +58,7 @@ func (h CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	categories, err := h.categoryService.List(ctx)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 

@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"myapp/internal/domain"
+	"myapp/internal/logger"
 	"myapp/internal/repository"
 
 	"github.com/jmoiron/sqlx"
@@ -52,7 +52,7 @@ func (u unitOfWork) Do(ctx context.Context, fn func(ctx context.Context, repos R
 	value, err := fn(ctx, repos)
 	if err != nil {
 		if err := tx.Rollback(); err != nil {
-			log.Println(err)
+			logger.FromContext(ctx).Error("transaction rollback failed", "error", err)
 		}
 		return nil, err
 	}

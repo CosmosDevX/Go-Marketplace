@@ -34,17 +34,17 @@ func (h UserRoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var dto dto.UserRoleDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		utils.WriteError(w, fmt.Errorf("user role dto: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("user role dto: %w", domain.ErrParse))
 		return
 	}
 
 	if err := validator.Struct(dto); err != nil {
-		utils.WriteError(w, fmt.Errorf("user role dto: %w", domain.ErrValidation))
+		utils.WriteError(ctx, w, fmt.Errorf("user role dto: %w", domain.ErrValidation))
 		return
 	}
 
 	if err := h.userRoleService.Create(ctx, service.UserRoleInput{Username: dto.Username, Role: dto.Role}); err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -56,12 +56,12 @@ func (h UserRoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	user, err := middleware.UserFromContext(ctx)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	if err := h.userRoleService.Delete(ctx, service.UserRoleInput{Username: r.PathValue("username"), Role: r.PathValue("rolename")}, user.UserID); err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -72,7 +72,7 @@ func (h UserRoleHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	roles, err := h.userRoleService.List(ctx, r.PathValue("username"))
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 

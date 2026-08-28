@@ -2,7 +2,8 @@
 package infrastructure
 
 import (
-	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -16,11 +17,13 @@ type SQLxClient struct {
 func NewSQLxClient(connStr string) SQLxClient {
 	db, err := sqlx.Connect("postgres", connStr)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("sqlx connect failed", "error", err)
+		os.Exit(1)
 	}
 
 	if err := db.Ping(); err != nil {
-		log.Fatal(err)
+		slog.Error("sqlx ping failed", "error", err)
+		os.Exit(1)
 	}
 
 	db.SetMaxIdleConns(10)

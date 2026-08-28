@@ -39,13 +39,13 @@ func (h OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	user, err := middleware.UserFromContext(ctx)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	orderID, err := h.orderService.Create(ctx, user.UserID)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -57,13 +57,13 @@ func (h OrderHandler) ListByUserID(w http.ResponseWriter, r *http.Request) {
 
 	user, err := middleware.UserFromContext(ctx)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	orders, err := h.orderService.ListByUserID(ctx, user.UserID)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 

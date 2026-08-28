@@ -36,15 +36,6 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 
 		duration := time.Since(start)
 
-		attrs := []any{
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", rw.status,
-			"duration_ms", duration.Milliseconds(),
-			"request_id", requestID,
-			"remote_addr", r.RemoteAddr,
-		}
-
 		level := slog.LevelInfo
 		if rw.status >= 500 {
 			level = slog.LevelError
@@ -52,7 +43,13 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 			level = slog.LevelWarn
 		}
 
-		slog.Log(ctx, level, "http_request", attrs...)
+		logger.FromContext(r.Context()).Log(r.Context(), level, "http_request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", rw.status,
+			"duration_ms", duration.Milliseconds(),
+			"remote_addr", r.RemoteAddr,
+		)
 	})
 }
 

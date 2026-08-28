@@ -1,10 +1,12 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
-	"log/slog"
 	"net"
 	"net/http"
+
+	"myapp/internal/logger"
 )
 
 func WriteJSON(w http.ResponseWriter, data any) {
@@ -15,11 +17,11 @@ func WriteJSON(w http.ResponseWriter, data any) {
 	}
 }
 
-func WriteError(w http.ResponseWriter, err error) {
+func WriteError(ctx context.Context, w http.ResponseWriter, err error) {
 	status := MapError(err)
 	msg := PublicMessage(err)
 
-	slog.Error("request failed", "status", status, "error", err)
+	logger.FromContext(ctx).Error("request failed", "status", status, "error", err)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

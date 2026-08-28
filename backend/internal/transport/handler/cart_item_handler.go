@@ -36,18 +36,18 @@ func (h CartItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var dto dto.CreateCartItemDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		utils.WriteError(w, fmt.Errorf("create cart item dto: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("create cart item dto: %w", domain.ErrParse))
 		return
 	}
 
 	if err := validator.Struct(dto); err != nil {
-		utils.WriteError(w, fmt.Errorf("create cart item dto: %w", domain.ErrValidation))
+		utils.WriteError(ctx, w, fmt.Errorf("create cart item dto: %w", domain.ErrValidation))
 		return
 	}
 
 	user, err := middleware.UserFromContext(ctx)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -57,7 +57,7 @@ func (h CartItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -69,13 +69,13 @@ func (h CartItemHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	user, err := middleware.UserFromContext(ctx)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	cartItems, err := h.cartItemService.List(ctx, user.UserID)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -91,24 +91,24 @@ func (h CartItemHandler) UpdateQuantity(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 	cartItemID, err := strconv.Atoi(r.PathValue("cart_item_id"))
 	if err != nil {
-		utils.WriteError(w, fmt.Errorf("cart item id parse: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("cart item id parse: %w", domain.ErrParse))
 		return
 	}
 	delta, err := strconv.Atoi(r.URL.Query().Get("delta"))
 	if err != nil {
-		utils.WriteError(w, fmt.Errorf("delta parse: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("delta parse: %w", domain.ErrParse))
 		return
 	}
 
 	user, err := middleware.UserFromContext(ctx)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	quantity, err := h.cartItemService.UpdateQuantity(ctx, user.UserID, cartItemID, delta)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -120,18 +120,18 @@ func (h CartItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 	cartItemID, err := strconv.Atoi(r.PathValue("cart_item_id"))
 	if err != nil {
-		utils.WriteError(w, fmt.Errorf("cart item id parse: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("cart item id parse: %w", domain.ErrParse))
 		return
 	}
 
 	user, err := middleware.UserFromContext(ctx)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
 	if err := h.cartItemService.Delete(ctx, user.UserID, cartItemID); err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 

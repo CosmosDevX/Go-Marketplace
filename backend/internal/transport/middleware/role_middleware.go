@@ -11,9 +11,10 @@ import (
 func RoleMiddleware(rolesToAccess []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user, err := UserFromContext(r.Context())
+			ctx := r.Context()
+			user, err := UserFromContext(ctx)
 			if err != nil {
-				utils.WriteError(w, err)
+				utils.WriteError(ctx, w, err)
 				return
 			}
 
@@ -24,7 +25,7 @@ func RoleMiddleware(rolesToAccess []string) func(http.Handler) http.Handler {
 				}
 			}
 
-			utils.WriteError(w, fmt.Errorf("access denied: %w", domain.ErrForbidden))
+			utils.WriteError(ctx, w, fmt.Errorf("access denied: %w", domain.ErrForbidden))
 		})
 	}
 }

@@ -50,12 +50,12 @@ func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	var dto dto.LoginDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		utils.WriteError(w, fmt.Errorf("login dto deserialize: %w", domain.ErrParse))
+		utils.WriteError(ctx, w, fmt.Errorf("login dto deserialize: %w", domain.ErrParse))
 		return
 	}
 
 	if err := validator.Struct(dto); err != nil {
-		utils.WriteError(w, fmt.Errorf("login dto validate: %w", domain.ErrValidation))
+		utils.WriteError(ctx, w, fmt.Errorf("login dto validate: %w", domain.ErrValidation))
 		return
 	}
 
@@ -64,7 +64,7 @@ func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Password: dto.Password,
 	})
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -82,13 +82,13 @@ func (h AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	tokenCookie, err := r.Cookie(refreshTokenKey)
 	if err != nil || tokenCookie.Value == "" {
-		utils.WriteError(w, fmt.Errorf("refresh token not exists: %w", domain.ErrUnauthorized))
+		utils.WriteError(ctx, w, fmt.Errorf("refresh token not exists: %w", domain.ErrUnauthorized))
 		return
 	}
 
 	authResult, err := h.authService.Refresh(ctx, tokenCookie.Value)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
@@ -101,17 +101,17 @@ func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	tokenCookie, err := r.Cookie(refreshTokenKey)
 	if err != nil || tokenCookie.Value == "" {
-		utils.WriteError(w, fmt.Errorf("refresh token not exists: %w", domain.ErrUnauthorized))
+		utils.WriteError(ctx, w, fmt.Errorf("refresh token not exists: %w", domain.ErrUnauthorized))
 		return
 	}
 
 	user, err := middleware.UserFromContext(ctx)
 	if err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 	if err := h.authService.Logout(ctx, tokenCookie.Value, user.AccessToken); err != nil {
-		utils.WriteError(w, err)
+		utils.WriteError(ctx, w, err)
 		return
 	}
 
