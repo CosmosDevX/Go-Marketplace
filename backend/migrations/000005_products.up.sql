@@ -8,4 +8,4 @@ CREATE TABLE IF NOT EXISTS products (
     product_seller_id INTEGER REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_products_seller_id ON products(product_seller_id);
+CREATE INDEX IF NOT EXISTS idx_products_seller_id ON products(product_seller_id);

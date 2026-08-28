@@ -66,10 +66,11 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService, *rateLimiter)
 	userHandler := handler.NewUserHandler(userService, *rateLimiter)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
-	productHandler := handler.NewProductHandler(productService, fileManager)
+	productHandler := handler.NewProductHandler(productService, fileManager, *rateLimiter)
 	cartItemHandler := handler.NewCartItemHandler(cartItemService)
 	userRoleHandler := handler.NewUserRoleHandler(userRoleService)
-	orderHandler := handler.NewOrderHandler(orderService)
+	orderHandler := handler.NewOrderHandler(orderService, *rateLimiter)
+	healthHandler := handler.NewHealthHandler(sqlxClient.GetDB(), redisClient.GetClient())
 
 	//initialize middlewares
 	authMiddleware := middleware.NewAuthMiddleware(jwtService, accessTokenRepository)
@@ -86,6 +87,8 @@ func main() {
 		r.Post("/login", authHandler.Login)
 		r.Post("/refresh", authHandler.Refresh)
 		r.With(authMiddleware.ProtectionMiddleware).Post("/logout", authHandler.Logout)
+
+		r.Get("/health", healthHandler.CheckHealth)
 
 		r.Route("/users", func(r chi.Router) {
 			r.Post("/", userHandler.Create)

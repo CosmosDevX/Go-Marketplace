@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-redis/redis_rate/v10"
 	"github.com/shopspring/decimal"
 )
 
@@ -33,20 +34,28 @@ type FileManager interface {
 	DeleteFile(filename string) error
 }
 
+const createProductRateLimitKey = "createProduct"
+
 type ProductHandler struct {
 	productService ProductService
 	fileManager    FileManager
+	rateLimiter    redis_rate.Limiter
 }
 
-func NewProductHandler(productService ProductService, fileManager FileManager) ProductHandler {
+func NewProductHandler(productService ProductService, fileManager FileManager, rateLimiter redis_rate.Limiter) ProductHandler {
 	return ProductHandler{
 		productService: productService,
 		fileManager:    fileManager,
+		rateLimiter:    rateLimiter,
 	}
 }
 
 func (h ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	if err := utils.ActivateRateLimiter(ctx, w, r, createProductRateLimitKey, &h.rateLimiter, redis_rate.PerHour(5)); err != nil {
+		return
+	}
 
 	if err := r.ParseMultipartForm(config.MaxBodySize); err != nil {
 		utils.WriteError(w, fmt.Errorf("form parse: %w", err))

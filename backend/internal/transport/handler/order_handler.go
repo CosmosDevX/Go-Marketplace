@@ -7,6 +7,8 @@ import (
 	"myapp/internal/transport/middleware"
 	"myapp/internal/utils"
 	"net/http"
+
+	"github.com/go-redis/redis_rate/v10"
 )
 
 type orderService interface {
@@ -14,18 +16,26 @@ type orderService interface {
 	ListByUserID(ctx context.Context, userID int) ([]domain.Order, error)
 }
 
+const createOrderRateLimitKey = "createOrder"
+
 type OrderHandler struct {
 	orderService orderService
+	rateLimiter  redis_rate.Limiter
 }
 
-func NewOrderHandler(orderService orderService) OrderHandler {
+func NewOrderHandler(orderService orderService, rateLimiter redis_rate.Limiter) OrderHandler {
 	return OrderHandler{
 		orderService: orderService,
+		rateLimiter:  rateLimiter,
 	}
 }
 
 func (h OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	if err := utils.ActivateRateLimiter(ctx, w, r, createOrderRateLimitKey, &h.rateLimiter, redis_rate.PerMinute(2)); err != nil {
+		return
+	}
 
 	user, err := middleware.UserFromContext(ctx)
 	if err != nil {

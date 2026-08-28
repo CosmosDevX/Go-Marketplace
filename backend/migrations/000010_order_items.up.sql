@@ -8,3 +8,5 @@ CREATE TABLE IF NOT EXISTS order_items(
     order_item_quantity INTEGER NOT NULL,
     order_item_total DECIMAL(10, 2) NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);

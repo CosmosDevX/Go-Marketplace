@@ -18,7 +18,7 @@ type UserCreator interface {
 	Create(ctx context.Context, input service.CreateUserInput) (int, error)
 }
 
-const createUserRateLimitKey = "create_user"
+const createUserRateLimitKey = "createUser"
 
 type UserHandler struct {
 	userCreator UserCreator
@@ -35,6 +35,10 @@ func NewUserHandler(userCreator UserCreator, rateLimiter redis_rate.Limiter) Use
 func (h UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	if err := utils.ActivateRateLimiter(ctx, w, r, createUserRateLimitKey, &h.rateLimiter, redis_rate.PerHour(5)); err != nil {
+		return
+	}
+
 	var dto dto.CreateUserDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create user dto: %w", domain.ErrParse))
@@ -43,10 +47,6 @@ func (h UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if err := validator.Struct(dto); err != nil {
 		utils.WriteError(w, fmt.Errorf("create user dto: %w", domain.ErrValidation))
-		return
-	}
-
-	if err := utils.ActivateRateLimiter(ctx, w, r, createUserRateLimitKey, &h.rateLimiter, redis_rate.PerHour(5)); err != nil {
 		return
 	}
 

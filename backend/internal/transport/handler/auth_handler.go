@@ -23,9 +23,10 @@ type AuthService interface {
 }
 
 const (
-	refreshTokenKey    = "refresh_token"
-	refreshTokenMaxAge = 3600 * 24 * 7
-	authRateLimitKey   = "auth"
+	refreshTokenKey     = "refresh_token"
+	refreshTokenMaxAge  = 3600 * 24 * 7
+	authRateLimitKey    = "auth"
+	refreshRateLimitKey = "refresh"
 )
 
 type AuthHandler struct {
@@ -74,6 +75,10 @@ func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 func (h AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	if err := utils.ActivateRateLimiter(ctx, w, r, refreshRateLimitKey, &h.rateLimiter, redis_rate.PerMinute(3)); err != nil {
+		return
+	}
 
 	tokenCookie, err := r.Cookie(refreshTokenKey)
 	if err != nil || tokenCookie.Value == "" {
