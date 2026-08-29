@@ -41,6 +41,20 @@ func NewAuthHandler(authService AuthService, rateLimiter redis_rate.Limiter) Aut
 	}
 }
 
+// Login godoc
+//
+//	@Summary		Login
+//	@Description	Authenticate user by username and password. Returns access token and sets refresh token cookie. Rate limit: 5 req/min.
+//	@Tags			Auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		dto.LoginDTO		true	"Login credentials"
+//	@Success		200		{object}	AuthResponse		"Access token and user roles"
+//	@Failure		400		{object}	ErrorResponse		"Parse or validation error"
+//	@Failure		401		{object}	ErrorResponse		"Invalid credentials"
+//	@Failure		429		{object}	ErrorResponse		"Too many requests"
+//	@Failure		500		{object}	ErrorResponse		"Internal server error"
+//	@Router			/login [post]
 func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -73,6 +87,17 @@ func (h AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]any{"access_token": authResult.AccessToken, "roles": authResult.Roles})
 }
 
+// Refresh godoc
+//
+//	@Summary		Refresh tokens
+//	@Description	Refresh access token using refresh token from cookie. Rate limit: 3 req/min.
+//	@Tags			Auth
+//	@Produce		json
+//	@Success		200	{object}	AuthResponse		"New access token and user roles"
+//	@Failure		401	{object}	ErrorResponse		"Missing or invalid refresh token"
+//	@Failure		429	{object}	ErrorResponse		"Too many requests"
+//	@Failure		500	{object}	ErrorResponse		"Internal server error"
+//	@Router			/refresh [post]
 func (h AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -96,6 +121,17 @@ func (h AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]any{"access_token": authResult.AccessToken, "roles": authResult.Roles})
 }
 
+// Logout godoc
+//
+//	@Summary		Logout
+//	@Description	Invalidate refresh and access tokens. Requires valid access token. Clears refresh token cookie.
+//	@Tags			Auth
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	MessageResponse	"Logout confirmation"
+//	@Failure		401	{object}	ErrorResponse		"Unauthorized or missing refresh token"
+//	@Failure		500	{object}	ErrorResponse		"Internal server error"
+//	@Router			/logout [post]
 func (h AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

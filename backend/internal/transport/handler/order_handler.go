@@ -30,6 +30,18 @@ func NewOrderHandler(orderService orderService, rateLimiter redis_rate.Limiter) 
 	}
 }
 
+// Create godoc
+//
+//	@Summary		Create order
+//	@Description	Create an order from the current cart contents. Rate limit: 2 req/min.
+//	@Tags			Orders
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	OrderIDResponse	"Created order ID"
+//	@Failure		401	{object}	ErrorResponse		"Unauthorized"
+//	@Failure		429	{object}	ErrorResponse		"Too many requests"
+//	@Failure		500	{object}	ErrorResponse		"Internal server error"
+//	@Router			/orders [post]
 func (h OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -52,6 +64,17 @@ func (h OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]int{"order_id": orderID})
 }
 
+// ListByUserID godoc
+//
+//	@Summary		List user orders
+//	@Description	Get all orders of the authenticated user.
+//	@Tags			Orders
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{array}		dto.GetOrderDTO	"List of user orders"
+//	@Failure		401	{object}	ErrorResponse		"Unauthorized"
+//	@Failure		500	{object}	ErrorResponse		"Internal server error"
+//	@Router			/orders [get]
 func (h OrderHandler) ListByUserID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

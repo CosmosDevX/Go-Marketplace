@@ -22,6 +22,15 @@ func NewHealthHandler(db *sqlx.DB, redisClient *redis.Client) HealthHandler {
 	}
 }
 
+// CheckHealth godoc
+//
+//	@Summary		Health check
+//	@Description	Check availability of database and Redis.
+//	@Tags			Health
+//	@Produce		json
+//	@Success		200	{object}	StatusResponse	"Service is healthy"
+//	@Failure		503	{object}	StatusResponse	"Service is unhealthy"
+//	@Router			/health [get]
 func (h HealthHandler) CheckHealth(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.FromContext(ctx)

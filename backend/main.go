@@ -18,11 +18,53 @@ import (
 	"syscall"
 	"time"
 
+	_ "myapp/docs"
+
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-redis/redis_rate/v10"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
+// Package main Marketplace API.
+//
+//	@title			Marketplace API
+//	@version		1.0
+//	@description	REST API for marketplace: products, categories, cart, orders, auth and roles.
+//	@termsOfService	http://swagger.io/terms/
+//
+//	@contact.name	API Support
+//	@contact.email	support@example.com
+//
+//	@license.name	Apache 2.0
+//	@license.url	http://www.apache.org/licenses/LICENSE-2.0.html
+//
+//	@host			localhost:8080
+//	@BasePath		/api/v1
+//
+//	@securityDefinitions.apikey	BearerAuth
+//	@in							header
+//	@name						Authorization
+//	@description				JWT access token. Example: "Bearer {token}"
+//
+//	@tag.name			Auth
+//	@tag.description	Authentication and session management
+//	@tag.name			Users
+//	@tag.description	User registration
+//	@tag.name			Categories
+//	@tag.description	Product categories
+//	@tag.name			Products
+//	@tag.description	Public product listing
+//	@tag.name			SellerProducts
+//	@tag.description	Seller product management (requires seller or admin role)
+//	@tag.name			Cart
+//	@tag.description	Shopping cart operations
+//	@tag.name			Orders
+//	@tag.description	Order management
+//	@tag.name			Roles
+//	@tag.description	User role management (admin only)
+//	@tag.name			Health
+//	@tag.description	Health check
 func main() {
 	ctx := context.Background()
 	cfg := config.Config{}
@@ -133,6 +175,10 @@ func main() {
 			http.StripPrefix("/api/v1/uploads/", http.FileServer(http.Dir("./uploads"))).ServeHTTP(w, r)
 		})
 	})
+
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
+	))
 
 	httpService := service.NewHTTPService(r)
 

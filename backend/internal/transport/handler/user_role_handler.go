@@ -29,6 +29,22 @@ func NewUserRoleHandler(userRoleService UserRoleService) UserRoleHandler {
 	}
 }
 
+// Create godoc
+//
+//	@Summary		Grant role
+//	@Description	Assign a role to a user. Requires admin role.
+//	@Tags			Roles
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		dto.UserRoleDTO		true	"Username and role"
+//	@Success		200		{object}	MessageResponse		"Role granted confirmation"
+//	@Failure		400		{object}	ErrorResponse		"Parse or validation error"
+//	@Failure		401		{object}	ErrorResponse		"Unauthorized"
+//	@Failure		403		{object}	ErrorResponse		"Forbidden (not admin)"
+//	@Failure		404		{object}	ErrorResponse		"User not found"
+//	@Failure		500		{object}	ErrorResponse		"Internal server error"
+//	@Router			/roles [post]
 func (h UserRoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -51,6 +67,21 @@ func (h UserRoleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]string{"message": "role granted"})
 }
 
+// Delete godoc
+//
+//	@Summary		Revoke role
+//	@Description	Remove a role from a user. Requires admin role.
+//	@Tags			Roles
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			username	path		string	true	"Username"
+//	@Param			rolename	path		string	true	"Role name"
+//	@Success		200			{object}	MessageResponse	"Role revoked confirmation"
+//	@Failure		401			{object}	ErrorResponse		"Unauthorized"
+//	@Failure		403			{object}	ErrorResponse		"Forbidden"
+//	@Failure		404			{object}	ErrorResponse		"User or role not found"
+//	@Failure		500			{object}	ErrorResponse		"Internal server error"
+//	@Router			/roles/user/{username}/role/{rolename} [delete]
 func (h UserRoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -68,6 +99,20 @@ func (h UserRoleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]string{"message": "role deleted"})
 }
 
+// List godoc
+//
+//	@Summary		List user roles
+//	@Description	Get all roles of a user by username. Requires admin role.
+//	@Tags			Roles
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			username	path		string	true	"Username"
+//	@Success		200			{array}		string			"List of roles"
+//	@Failure		401			{object}	ErrorResponse	"Unauthorized"
+//	@Failure		403			{object}	ErrorResponse	"Forbidden"
+//	@Failure		404			{object}	ErrorResponse	"User not found"
+//	@Failure		500			{object}	ErrorResponse	"Internal server error"
+//	@Router			/roles/{username} [get]
 func (h UserRoleHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	roles, err := h.userRoleService.List(ctx, r.PathValue("username"))

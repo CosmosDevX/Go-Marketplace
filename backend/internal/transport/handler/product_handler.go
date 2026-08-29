@@ -50,6 +50,26 @@ func NewProductHandler(productService ProductService, fileManager FileManager, r
 	}
 }
 
+// Create godoc
+//
+//	@Summary		Create product
+//	@Description	Create a new product with image upload. Requires seller or admin role. Rate limit: 5 req/hour. Content-Type: multipart/form-data.
+//	@Tags			SellerProducts
+//	@Accept			mpfd
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			product_name		formData	string	true	"Product name"
+//	@Param			product_description	formData	string	true	"Product description"
+//	@Param			product_price		formData	string	true	"Product price (decimal)"
+//	@Param			category_slug		formData	string	true	"Category slug"
+//	@Param			product_image		formData	file	true	"Product image (image/*)"
+//	@Success		200					{object}	ProductIDResponse	"Created product ID"
+//	@Failure		400					{object}	ErrorResponse		"Parse, validation or missing file error"
+//	@Failure		401					{object}	ErrorResponse		"Unauthorized"
+//	@Failure		403					{object}	ErrorResponse		"Forbidden"
+//	@Failure		429					{object}	ErrorResponse		"Too many requests"
+//	@Failure		500					{object}	ErrorResponse		"Internal server error"
+//	@Router			/seller/products [post]
 func (h ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -100,6 +120,27 @@ func (h ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]int{"product_id": productID})
 }
 
+// Update godoc
+//
+//	@Summary		Update product
+//	@Description	Update existing product. Image is optional. Requires seller or admin role. Content-Type: multipart/form-data.
+//	@Tags			SellerProducts
+//	@Accept			mpfd
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			product_id			path		int		true	"Product ID"
+//	@Param			product_name		formData	string	true	"Product name"
+//	@Param			product_description	formData	string	true	"Product description"
+//	@Param			product_price		formData	string	true	"Product price (decimal)"
+//	@Param			category_slug		formData	string	true	"Category slug"
+//	@Param			product_image		formData	file	false	"New product image (optional)"
+//	@Success		200					{object}	ProductIDResponse	"Updated product ID"
+//	@Failure		400					{object}	ErrorResponse		"Parse or validation error"
+//	@Failure		401					{object}	ErrorResponse		"Unauthorized"
+//	@Failure		403					{object}	ErrorResponse		"Forbidden"
+//	@Failure		404					{object}	ErrorResponse		"Product not found"
+//	@Failure		500					{object}	ErrorResponse		"Internal server error"
+//	@Router			/seller/products/{product_id} [put]
 func (h ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -165,6 +206,21 @@ func (h ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]int{"product_id": productID})
 }
 
+// List godoc
+//
+//	@Summary		List products
+//	@Description	Public product listing with search, category filter, sorting and pagination.
+//	@Tags			Products
+//	@Produce		json
+//	@Param			page		query		int		true	"Page number (starting from 1)"
+//	@Param			search		query		string	false	"Search by product name"
+//	@Param			category	query		string	false	"Filter by category slug"
+//	@Param			sortBy		query		string	false	"Sort field (e.g. price, name)"
+//	@Param			asc			query		bool	false	"Ascending order (default false)"
+//	@Success		200			{object}	ProductListResponse	"Paginated list of products"
+//	@Failure		400			{object}	ErrorResponse			"Invalid page parameter"
+//	@Failure		500			{object}	ErrorResponse			"Internal server error"
+//	@Router			/products [get]
 func (h ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -200,6 +256,20 @@ func (h ProductHandler) List(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ListBySeller godoc
+//
+//	@Summary		List seller products
+//	@Description	List products belonging to the authenticated seller. Requires seller or admin role.
+//	@Tags			SellerProducts
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			page	query		int	true	"Page number"
+//	@Success		200		{object}	ProductListResponse	"Paginated list of seller products"
+//	@Failure		400		{object}	ErrorResponse			"Invalid page"
+//	@Failure		401		{object}	ErrorResponse			"Unauthorized"
+//	@Failure		403		{object}	ErrorResponse			"Forbidden"
+//	@Failure		500		{object}	ErrorResponse			"Internal server error"
+//	@Router			/seller/products [get]
 func (h ProductHandler) ListBySeller(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -233,6 +303,21 @@ func (h ProductHandler) ListBySeller(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Delete godoc
+//
+//	@Summary		Delete product
+//	@Description	Delete product by ID. Seller can delete own products, admin can delete any. Requires seller or admin role.
+//	@Tags			SellerProducts
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			product_id	path		int	true	"Product ID"
+//	@Success		200			{object}	MessageResponse	"Deletion confirmation"
+//	@Failure		400			{object}	ErrorResponse		"Invalid product_id"
+//	@Failure		401			{object}	ErrorResponse		"Unauthorized"
+//	@Failure		403			{object}	ErrorResponse		"Forbidden"
+//	@Failure		404			{object}	ErrorResponse		"Product not found"
+//	@Failure		500			{object}	ErrorResponse		"Internal server error"
+//	@Router			/seller/products/{product_id} [delete]
 func (h ProductHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

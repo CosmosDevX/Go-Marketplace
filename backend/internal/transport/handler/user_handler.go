@@ -32,6 +32,20 @@ func NewUserHandler(userCreator UserCreator, rateLimiter redis_rate.Limiter) Use
 	}
 }
 
+// Create godoc
+//
+//	@Summary		Register user
+//	@Description	Create a new user account. Rate limit: 5 req/hour.
+//	@Tags			Users
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		dto.CreateUserDTO	true	"User registration data"
+//	@Success		200		{object}	UserIDResponse		"Created user ID"
+//	@Failure		400		{object}	ErrorResponse		"Parse or validation error"
+//	@Failure		409		{object}	ErrorResponse		"Username or email already exists"
+//	@Failure		429		{object}	ErrorResponse		"Too many requests"
+//	@Failure		500		{object}	ErrorResponse		"Internal server error"
+//	@Router			/users [post]
 func (h UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

@@ -27,6 +27,22 @@ func NewCategoryHandler(categoryService CategoryService) CategoryHandler {
 	}
 }
 
+// Create godoc
+//
+//	@Summary		Create category
+//	@Description	Create a new product category. Requires admin role.
+//	@Tags			Categories
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		dto.CreateCategoryDTO	true	"Category data"
+//	@Success		200		{object}	CategoryIDResponse		"Created category ID"
+//	@Failure		400		{object}	ErrorResponse			"Parse or validation error"
+//	@Failure		401		{object}	ErrorResponse			"Unauthorized"
+//	@Failure		403		{object}	ErrorResponse			"Forbidden (not admin)"
+//	@Failure		409		{object}	ErrorResponse			"Category name or slug already exists"
+//	@Failure		500		{object}	ErrorResponse			"Internal server error"
+//	@Router			/categories [post]
 func (h CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -53,6 +69,15 @@ func (h CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]int{"category_id": categoryID})
 }
 
+// List godoc
+//
+//	@Summary		List categories
+//	@Description	Get all product categories.
+//	@Tags			Categories
+//	@Produce		json
+//	@Success		200	{array}		dto.GetCategoryDTO	"List of categories"
+//	@Failure		500	{object}	ErrorResponse		"Internal server error"
+//	@Router			/categories [get]
 func (h CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

@@ -31,6 +31,21 @@ func NewCartItemHandler(cartItemService CartItemService) CartItemHandler {
 	}
 }
 
+// Create godoc
+//
+//	@Summary		Add item to cart
+//	@Description	Add a product to the authenticated user's cart.
+//	@Tags			Cart
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			body	body		dto.CreateCartItemDTO	true	"Product to add"
+//	@Success		200		{object}	CartItemIDResponse		"Created cart item ID"
+//	@Failure		400		{object}	ErrorResponse			"Parse or validation error"
+//	@Failure		401		{object}	ErrorResponse			"Unauthorized"
+//	@Failure		404		{object}	ErrorResponse			"Product not found"
+//	@Failure		500		{object}	ErrorResponse			"Internal server error"
+//	@Router			/cart/items [post]
 func (h CartItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -64,6 +79,17 @@ func (h CartItemHandler) Create(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, map[string]int{"cart_item_id": cartItemID})
 }
 
+// List godoc
+//
+//	@Summary		List cart items
+//	@Description	Get all items in the authenticated user's cart.
+//	@Tags			Cart
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{array}		dto.GetCartItemDTO	"List of cart items"
+//	@Failure		401	{object}	ErrorResponse		"Unauthorized"
+//	@Failure		500	{object}	ErrorResponse		"Internal server error"
+//	@Router			/cart [get]
 func (h CartItemHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -87,6 +113,21 @@ func (h CartItemHandler) List(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, dtos)
 }
 
+// UpdateQuantity godoc
+//
+//	@Summary		Update cart item quantity
+//	@Description	Change quantity of a cart item by delta (can be negative).
+//	@Tags			Cart
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			cart_item_id	path		int	true	"Cart item ID"
+//	@Param			delta			query		int	true	"Quantity change (positive or negative)"
+//	@Success		200				{object}	QuantityResponse	"Updated quantity"
+//	@Failure		400				{object}	ErrorResponse		"Invalid parameters"
+//	@Failure		401				{object}	ErrorResponse		"Unauthorized"
+//	@Failure		404				{object}	ErrorResponse		"Cart item not found"
+//	@Failure		500				{object}	ErrorResponse		"Internal server error"
+//	@Router			/cart/items/{cart_item_id} [patch]
 func (h CartItemHandler) UpdateQuantity(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cartItemID, err := strconv.Atoi(r.PathValue("cart_item_id"))
@@ -115,6 +156,20 @@ func (h CartItemHandler) UpdateQuantity(w http.ResponseWriter, r *http.Request) 
 	utils.WriteJSON(w, map[string]int{"quantity": quantity})
 }
 
+// Delete godoc
+//
+//	@Summary		Remove item from cart
+//	@Description	Delete a cart item by ID.
+//	@Tags			Cart
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			cart_item_id	path		int	true	"Cart item ID"
+//	@Success		200				{object}	MessageResponse	"Deletion confirmation"
+//	@Failure		400				{object}	ErrorResponse		"Invalid cart_item_id"
+//	@Failure		401				{object}	ErrorResponse		"Unauthorized"
+//	@Failure		404				{object}	ErrorResponse		"Cart item not found"
+//	@Failure		500				{object}	ErrorResponse		"Internal server error"
+//	@Router			/cart/items/{cart_item_id} [delete]
 func (h CartItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
