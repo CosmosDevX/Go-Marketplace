@@ -78,7 +78,7 @@ func (h ProductHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseMultipartForm(config.MaxBodySize); err != nil {
-		utils.WriteError(ctx, w, fmt.Errorf("form parse: %w", err))
+		utils.WriteError(ctx, w, fmt.Errorf("form parse: %w", domain.ErrParse))
 		return
 	}
 
@@ -145,7 +145,7 @@ func (h ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	if err := r.ParseMultipartForm(config.MaxBodySize); err != nil {
-		utils.WriteError(ctx, w, fmt.Errorf("form parse: %w", err))
+		utils.WriteError(ctx, w, fmt.Errorf("form parse: %w", domain.ErrParse))
 		return
 	}
 

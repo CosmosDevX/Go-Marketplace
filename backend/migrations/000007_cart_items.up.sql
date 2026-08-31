@@ -3,5 +3,5 @@ CREATE TABLE IF NOT EXISTS cart_items(
     cart_id INTEGER NOT NULL REFERENCES carts(cart_id) ON DELETE CASCADE,
     product_id INTEGER NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
     UNIQUE(cart_id, product_id),
-    quantity INTEGER DEFAULT 1
+    quantity INTEGER NOT NULL DEFAULT 1 CHECK(quantity > 0)
 );

@@ -6,12 +6,15 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"myapp/internal/config"
-
 	"github.com/joho/godotenv"
 )
 
-func LoadTestConfig() config.Config {
+type TestsConfig struct {
+	SecretKey               string
+	TestsDBConnectionString string
+}
+
+func LoadTestConfig() TestsConfig {
 	_, filename, _, _ := runtime.Caller(0)
 	root := filepath.Join(filepath.Dir(filename), "../..")
 	envPath := filepath.Join(root, ".env")
@@ -20,7 +23,7 @@ func LoadTestConfig() config.Config {
 		log.Fatalf("failed to load .env for tests: %v", err)
 	}
 
-	return config.Config{
+	return TestsConfig{
 		SecretKey:               os.Getenv("SECRET_KEY"),
 		TestsDBConnectionString: os.Getenv("TESTS_DB_CONNECTION_STRING"),
 	}
