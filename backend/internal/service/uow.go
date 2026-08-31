@@ -8,16 +8,42 @@ import (
 	"myapp/internal/repository"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/shopspring/decimal"
 )
 
+type userRepository interface {
+	Create(ctx context.Context, u domain.User) (int, error)
+}
+
+type userRoleRepository interface {
+	Create(ctx context.Context, username string, roleName string) error
+}
+
+type cartRepository interface {
+	Create(ctx context.Context, userID int) (int, error)
+	GetIDByUserID(ctx context.Context, userID int) (int, error)
+}
+
+type cartItemRepository interface {
+	DeleteAllByCartID(ctx context.Context, cartID int) error
+	ListByCartID(ctx context.Context, cartID int) ([]domain.CartItem, error)
+}
+
+type orderRepository interface {
+	Create(ctx context.Context, userID int, orderStatus string, orderTotal decimal.Decimal) (int, error)
+}
+
+type orderItemRepository interface {
+	CreateMany(ctx context.Context, orderItems []domain.OrderItem) error
+}
+
 type Repositories struct {
-	UserRepository      repository.UserRepository
-	UserRoleRepository  repository.UserRoleRepository
-	CartRepository      repository.CartRepository
-	CartItemRepository  repository.CartItemRepository
-	ProductRepository   repository.ProductRepository
-	OrderRepository     repository.OrderRepository
-	OrderItemRepository repository.OrderItemRepository
+	UserRepository      userRepository
+	UserRoleRepository  userRoleRepository
+	CartRepository      cartRepository
+	CartItemRepository  cartItemRepository
+	OrderRepository     orderRepository
+	OrderItemRepository orderItemRepository
 }
 
 type UnitOfWork interface {
@@ -44,7 +70,6 @@ func (u unitOfWork) Do(ctx context.Context, fn func(ctx context.Context, repos R
 		UserRepository:      repository.NewUserRepository(tx),
 		UserRoleRepository:  repository.NewUserRoleRepository(tx),
 		CartRepository:      repository.NewCartRepository(tx),
-		ProductRepository:   repository.NewProductRepository(tx),
 		CartItemRepository:  repository.NewCartItemRepository(tx),
 		OrderRepository:     repository.NewOrderRepository(tx),
 		OrderItemRepository: repository.NewOrderItemRepository(tx),
