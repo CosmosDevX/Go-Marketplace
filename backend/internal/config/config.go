@@ -9,14 +9,15 @@ import (
 )
 
 type Config struct {
-	SecretKey           string
-	DBConnectionString  string
-	LogFormat           string
-	LogLevel            string
-	RedisClientHost     string
-	RedisClientPassword string
-	CORSAllowedHost     string
-	UploadsDir          string
+	SecretKey               string
+	DBConnectionString      string
+	TestsDBConnectionString string
+	LogFormat               string
+	LogLevel                string
+	RedisClientHost         string
+	RedisClientPassword     string
+	CORSAllowedHost         string
+	UploadsDir              string
 }
 
 func (c *Config) Load() {
