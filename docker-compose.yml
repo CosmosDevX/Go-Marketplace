@@ -1,0 +1,104 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: marketplace-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aegis
+      POSTGRES_PASSWORD: 1234Qwerty
+      POSTGRES_DB: my_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aegis -d my_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: marketplace-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    image: migrate/migrate:v4.18.1
+    container_name: marketplace-migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/migrations:/migrations
+    command: [
+      "-path", "/migrations",
+      "-database", "postgres://aegis:1234Qwerty@postgres:5432/my_db?sslmode=disable",
+      "up"
+    ]
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: builder         
+    container_name: marketplace-backend
+    working_dir: /app
+    volumes:
+      - ./backend:/app                     
+      - backend_uploads:/app/uploads       
+      - go_mod_cache:/go/pkg/mod           
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      DB_CONNECTION_STRING: "host=postgres user=aegis password=1234Qwerty dbname=my_db sslmode=disable"
+      TESTS_DB_CONNECTION_STRING: "host=postgres user=aegis password=1234Qwerty dbname=tests_db sslmode=disable"
+      REDIS_CLIENT_HOST: "redis:6379"
+      REDIS_CLIENT_PASSWORD: ""
+      CORS_ALLOWED_HOST: "http://localhost:5173"
+      UPLOADS_DIR: "./uploads"
+      LOG_FORMAT: json
+      LOG_LEVEL: debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: go run main.go
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: marketplace-frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules       
+    ports:
+      - "5173:5173"
+    environment:
+      - CHOKIDAR_USEPOLLING=true   
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_uploads:
+  go_mod_cache:
