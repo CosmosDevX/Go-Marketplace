@@ -45,7 +45,7 @@ func (r CartRepository) Create(ctx context.Context, userID int) (int, error) {
 }
 
 func (r CartRepository) GetIDByUserID(ctx context.Context, userID int) (int, error) {
-	query := `SELECT cart_id FROM carts WHERE user_id = $1`
+	query := `SELECT cart_id FROM carts WHERE user_id = $1 FOR UPDATE`
 	var id int
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(&id)
 	if err != nil {
