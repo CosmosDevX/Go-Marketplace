@@ -170,8 +170,9 @@ func (h ProductHandler) Update(w http.ResponseWriter, r *http.Request) {
 			utils.WriteError(ctx, w, err)
 			return
 		}
+
+		defer parsedFile.File.Close()
 	}
-	parsedFile.File.Close()
 
 	productID, err := strconv.Atoi(r.PathValue("product_id"))
 	if err != nil {
