@@ -85,6 +85,7 @@ func (r CartItemRepository) ListByCartID(ctx context.Context, cartID int) ([]dom
 		JOIN products AS p ON p.product_id = ci.product_id
 		JOIN categories AS c ON p.product_category_id = c.category_id
 		WHERE ci.cart_id = $1
+		FOR UPDATE OF ci
 	`
 	var cartItemRows []cartItemRow
 	err := r.db.SelectContext(ctx, &cartItemRows, query, cartID)
